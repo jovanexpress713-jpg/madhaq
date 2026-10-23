@@ -1,0 +1,8 @@
+{
+  "name": "مذاق MADHAQ - إدارة وتوزيع الحلويات",
+  "description": "نظام معمل حلويات مذاق لإدارة الموزعين والمبيعات، الموردين والمشتريات، المواد الخام والإنتاج، التحصيلات وكشف الخميس المحاسبي أوفلاين.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
