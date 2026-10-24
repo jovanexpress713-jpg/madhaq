@@ -135,6 +135,7 @@ export const CustomerOperationsView: React.FC = () => {
     setMessage('تم حفظ إقفال الأسبوع '+weekKey+' بعدد '+(result.close?.customerCount||0)+' بقالة. الرصيد المرحل ظاهر في كشف الأسبوع.');
   };
   const setStatus = (id:string,status:SupplyRequestStatus) => { resetNotice(); const result=storage.updateSupplyRequestStatus(id,status); if(!result.success)setError(result.error||'تعذر تحديث الطلب'); else setMessage('تم تحديث حالة الطلب.'); };
+  const fulfillFromStock = (id:string) => { resetNotice(); const result=storage.fulfillSupplyRequestFromStock(id); if(!result.success)setError(result.error||'تعذر صرف المخزون'); else setMessage('تم صرف الكميات المتاحة من المخزون وربطها بالطلب.'); };
 
   return <div className="space-y-5" dir="rtl">
     <header className="rounded-3xl bg-stone-900 text-white p-5 sm:p-7 border border-amber-700/30 shadow-sm">
@@ -266,10 +267,10 @@ export const CustomerOperationsView: React.FC = () => {
         <h3 className="font-black">متابعة الطلبات وحالتها</h3>
         {db.supplyRequests.length===0?<p className="text-sm text-stone-500 py-8 text-center">لا توجد طلبات بعد.</p>:db.supplyRequests.map(r=><div key={r.id} className="rounded-xl border border-stone-200 dark:border-stone-700 p-3 space-y-2">
           <div className="flex items-start justify-between gap-2"><div><strong>{r.displayNumber} · {r.distributorName}</strong><p className="text-xs text-stone-500 mt-1">{r.customerName||'طلب عام'} · {r.governorate}/{r.district}/{r.locality} · {r.requestedDate}</p></div><span className="rounded-lg bg-amber-100 text-amber-900 px-2 py-1 text-[11px] font-bold">{statusLabel[r.status]}</span></div>
-          <div className="flex flex-wrap gap-2">{r.items.map((it,i)=><span key={i} className="rounded-lg bg-stone-100 dark:bg-stone-800 px-2 py-1 text-xs">{it.productName}: {it.producedQty || 0}/{it.quantity} {it.unit}</span>)}</div>
+          <div className="flex flex-wrap gap-2">{r.items.map((it,i)=><span key={i} className="rounded-lg bg-stone-100 dark:bg-stone-800 px-2 py-1 text-xs">{it.productName}: {it.fulfilledQty ?? it.producedQty ?? 0}/{it.quantity} {it.unit}</span>)}</div>
           {r.note&&<p className="text-xs text-stone-500">{r.note}</p>}
           {r.status==='SUBMITTED'&&<div className="flex gap-2"><button onClick={()=>setStatus(r.id,'APPROVED')} className="rounded-lg bg-emerald-600 text-white px-3 py-2 text-xs font-bold">اعتماد الطلب</button><button onClick={()=>setStatus(r.id,'REJECTED')} className="rounded-lg bg-red-100 text-red-700 px-3 py-2 text-xs font-bold">رفض</button></div>}
-          {r.status==='APPROVED'&&<div className="flex gap-2"><button onClick={()=>setStatus(r.id,'IN_PRODUCTION')} className="rounded-lg bg-blue-100 text-blue-800 px-3 py-2 text-xs font-bold">تحويل للإنتاج</button><button onClick={()=>setStatus(r.id,'READY')} className="rounded-lg bg-emerald-100 text-emerald-800 px-3 py-2 text-xs font-bold">جاهز من المخزون</button></div>}
+          {r.status==='APPROVED'&&<div className="flex gap-2"><button onClick={()=>setStatus(r.id,'IN_PRODUCTION')} className="rounded-lg bg-blue-100 text-blue-800 px-3 py-2 text-xs font-bold">تحويل للإنتاج</button><button onClick={()=>fulfillFromStock(r.id)} className="rounded-lg bg-emerald-100 text-emerald-800 px-3 py-2 text-xs font-bold">صرف الكمية من المخزون</button></div>}
           {r.status==='IN_PRODUCTION'&&<p className="rounded-lg bg-blue-50 dark:bg-blue-950/30 text-blue-800 dark:text-blue-300 px-3 py-2 text-xs">تم تحويل الطلب إلى شاشة الإنتاج. تتحول الحالة إلى جاهز تلقائيًا بعد تسجيل إنتاج جميع الأصناف المطلوبة.</p>}
           {r.status==='READY'&&<button onClick={()=>setStatus(r.id,'FULFILLED')} className="rounded-lg bg-stone-900 text-white px-3 py-2 text-xs font-bold">تأكيد التسليم</button>}
         </div>)}
