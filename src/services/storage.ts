@@ -1855,26 +1855,23 @@ class StorageService {
   // ===================== الصندوق وحركة النقدية =====================
   public getCashboxSummary() {
     // التدفقات النقدية الداخلة:
-    // 1. مبالغ المقبوض نقدًا من فواتير التوزيع
     const distCash = this.db.distributions.reduce((s, d) => s + (d.cashPaidYER || 0), 0);
-    // 2. سندات التحصيل النقدية
     const colCash = this.db.collections
       .filter((c) => c.method === 'CASH')
       .reduce((s, c) => s + c.amountYER, 0);
-
     const totalCashIn = distCash + colCash;
 
-    // التدفقات النقدية الخارجة:
-    // 1. المشتريات المسددة نقدًا
+    // التدفقات النقدية الخارجة، بما فيها المبالغ المصروفة للموزعين كاسترداد نقدي للمرتجعات.
     const purCash = this.db.purchases.reduce((s, p) => s + (p.cashPaidYER || 0), 0);
-    // 2. سداد الموردين نقدًا
     const suppCash = this.db.supplierPayments
       .filter((p) => p.method === 'CASH')
       .reduce((s, p) => s + p.amountYER, 0);
-    // 3. المصروفات التشغيلية
     const expCash = this.db.expenses.reduce((s, e) => s + e.amountYER, 0);
+    const returnCash = this.db.returns
+      .filter((r) => r.settlementType === 'CASH_REFUND')
+      .reduce((s, r) => s + (r.totalValueYER || 0), 0);
 
-    const totalCashOut = purCash + suppCash + expCash;
+    const totalCashOut = purCash + suppCash + expCash + returnCash;
     const netCashBalance = totalCashIn - totalCashOut;
 
     return {
@@ -1884,6 +1881,7 @@ class StorageService {
       purCash,
       suppCash,
       expCash,
+      returnCash,
       totalCashOut,
       netCashBalance
     };
