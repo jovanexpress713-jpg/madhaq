@@ -17,6 +17,11 @@ storage.resetToDefault();
 const db = storage.getDatabase();
 const distributor = db.distributors.find(item => item.active);
 const product = db.products.find(item => item.active);
+// Use an isolated ledger so demo transactions cannot affect FIFO pricing expectations.
+db.distributions = [];
+db.returns = [];
+db.collections = [];
+if (distributor) distributor.openingDebtYER = 0;
 assert(distributor, 'Seed data must include an active distributor');
 assert(product, 'Seed data must include an active product');
 
