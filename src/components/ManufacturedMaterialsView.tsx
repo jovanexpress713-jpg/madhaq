@@ -1,6 +1,16 @@
 import React, { useMemo, useState } from 'react';
 import { Factory, Search, Calculator } from 'lucide-react';
-import { RAW_MATERIAL_PRODUCT_LIBRARY } from '../data/recipeLibrary';
+import { RAW_MATERIAL_PRODUCT_LIBRARY, RECIPE_LIBRARY } from '../data/recipeLibrary';
+import { DEFAULT_RECIPE_OPERATION_META, RECIPE_OPERATION_META } from '../data/recipeOperations';
+
+const recipeIdByProductId: Record<string, string> = {
+  'samosa-sheets': 'samosa',
+  'kunafa-dough': 'kunafa-dough',
+  'baklava-sheets': 'baklava-sheets',
+  'pizza-dough': 'pizza-dough',
+  'cream-filling': 'cream-filling',
+  'sugar-syrup': 'sugar-syrup',
+};
 
 export const ManufacturedMaterialsView: React.FC = () => {
   const [query,setQuery]=useState('');
@@ -9,13 +19,16 @@ export const ManufacturedMaterialsView: React.FC = () => {
   const [sellingPrice,setSellingPrice]=useState(0);
   const [batchCost,setBatchCost]=useState(0);
   const visible=useMemo(()=>RAW_MATERIAL_PRODUCT_LIBRARY.filter(p=>p.name.includes(query.trim())),[query]);
+  const recipe=useMemo(()=>RECIPE_LIBRARY.find(r=>r.id===recipeIdByProductId[selected.id])??null,[selected.id]);
+  const recipeMeta=recipe?(RECIPE_OPERATION_META[recipe.id]??DEFAULT_RECIPE_OPERATION_META):DEFAULT_RECIPE_OPERATION_META;
+  const scaledIngredients=recipe?recipe.ingredients.map(item=>({...item,scaledGrams:item.grams*(yieldGrams/recipe.baseYieldGrams)})):[];
   const profit=sellingPrice-batchCost;
   const margin=sellingPrice>0?profit/sellingPrice:0;
   const select=(p:typeof selected)=>{setSelected(p);setYieldGrams(p.yieldGrams);setSellingPrice(0);setBatchCost(0)};
   return <div dir="rtl" className="space-y-5 pb-10">
     <div className="bg-white dark:bg-stone-900 border rounded-3xl p-5"><div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4"><div className="flex items-center gap-3"><div className="w-12 h-12 rounded-2xl bg-emerald-500/10 text-emerald-600 flex items-center justify-center"><Factory className="w-6 h-6" /></div><div><h2 className="text-xl font-black">إنتاج المواد الخام ونصف المصنعة</h2><p className="text-xs text-stone-500">صنّع ما يحتاجه المعمل أو السوق: رقائق سمبوسة، عجينة كنافة، رقائق بقلاوة، عجائن وحشوات وشيرة.</p></div></div><div className="relative w-full lg:w-80"><Search className="absolute right-3 top-3 w-4 h-4 text-stone-400"/><input value={query} onChange={e=>setQuery(e.target.value)} className="input pr-9 w-full" placeholder="ابحث عن منتج نصف مصنع..."/></div></div></div>
     <div className="grid grid-cols-1 lg:grid-cols-[300px_1fr] gap-4"><div className="bg-white dark:bg-stone-900 border rounded-3xl p-4 space-y-2">{visible.map(p=><button key={p.id} onClick={()=>select(p)} className={`w-full text-right p-3 rounded-2xl border ${selected.id===p.id?'border-emerald-500 bg-emerald-500/10':'border-stone-100 dark:border-stone-800'}`}><b className="text-sm">{p.name}</b><div className="text-[11px] text-stone-500">{p.category} • دفعة {p.yieldGrams.toLocaleString()} جم</div></button>)}</div>
-      <div className="bg-white dark:bg-stone-900 border rounded-3xl p-5 space-y-5"><div><div className="text-xs text-emerald-600 font-bold">{selected.category}</div><h3 className="text-2xl font-black">{selected.name}</h3><p className="text-xs text-stone-500 mt-1">المواد المقترحة: {selected.inputs.join(' • ')}</p></div>
+      <div className="bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 rounded-3xl p-5 space-y-5 shadow-sm"><div className="flex flex-col sm:flex-row gap-4"><img src={recipeMeta.imageUrl} alt={recipeMeta.imageAlt} loading="lazy" onError={e=>{e.currentTarget.style.display='none';}} className="w-full sm:w-36 h-32 rounded-2xl object-cover bg-stone-100 dark:bg-stone-800"/><div className="flex-1"><div className="text-xs text-emerald-600 font-bold">{selected.category}</div><h3 className="text-2xl font-black">{selected.name}</h3><p className="text-xs text-stone-500 mt-1">المواد المقترحة: {selected.inputs.join(' • ')}</p><p className="text-xs text-stone-500 mt-2">{selected.notes}</p></div></div>{recipe&&<section className="rounded-2xl border border-emerald-200 dark:border-emerald-900/50 overflow-hidden"><div className="px-4 py-3 bg-emerald-50 dark:bg-emerald-950/30 flex items-center justify-between gap-2"><div><h4 className="font-black text-sm">المقادير الفعلية للدفعة</h4><p className="text-[11px] text-stone-500 mt-1">تتغير تلقائياً مع وزن الدفعة أدناه</p></div><span className="text-xs font-bold text-emerald-700 dark:text-emerald-300">{recipe.ingredients.length} مكونات</span></div><div className="grid grid-cols-1 sm:grid-cols-2 gap-2 p-3">{scaledIngredients.map(item=><div key={item.name} className="flex items-center justify-between gap-3 rounded-xl bg-stone-50 dark:bg-stone-800/70 px-3 py-2.5 text-xs"><span className="font-semibold">{item.name}</span><b className="font-mono">{Math.round(item.scaledGrams).toLocaleString()} جم</b></div>)}</div><p className="px-4 pb-4 text-[11px] leading-5 text-stone-500">{recipe.notes}</p></section>}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3"><label className="block"><span className="label">وزن الدفعة</span><input type="number" min="1" value={yieldGrams} onChange={e=>setYieldGrams(Number(e.target.value))} className="input"/></label><label className="block"><span className="label">تكلفة الدفعة</span><input type="number" min="0" value={batchCost} onChange={e=>setBatchCost(Number(e.target.value))} className="input"/></label><label className="block"><span className="label">سعر بيع الدفعة</span><input type="number" min="0" value={sellingPrice} onChange={e=>setSellingPrice(Number(e.target.value))} className="input"/></label></div>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3"><Stat label="تكلفة/كجم" value={(yieldGrams>0?(batchCost/yieldGrams*1000).toLocaleString(undefined,{maximumFractionDigits:0}):'0')+' ر.ي'} /><Stat label="سعر البيع" value={sellingPrice.toLocaleString()+' ر.ي'} /><Stat label="الربح" value={profit.toLocaleString()+' ر.ي'} /><Stat label="الهامش" value={(margin*100).toFixed(1)+'%'} /></div>
         <div className="rounded-2xl bg-stone-50 dark:bg-stone-800/60 p-4 text-xs leading-6"><b>طريقة التشغيل:</b> سجّل المواد الداخلة فعليًا في دفعة، احسب وزن الناتج بعد الفاقد، ثم أدخل تكلفة الدفعة وسعر البيع. الهدف أن يعرف النظام تكلفة الكيلو والعبوة والربح قبل اعتماد المنتج.</div>
