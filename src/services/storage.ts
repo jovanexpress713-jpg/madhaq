@@ -19,7 +19,10 @@ import {
   CustomerSale,
   CustomerPayment,
   SupplyRequest,
-  SupplyRequestStatus
+  SupplyRequestStatus,
+  CustomerReturn,
+  CustomerReturnStatus,
+  CustomerWeeklyClose
 } from '../types';
 
 const STORAGE_KEY = 'madhaq_factory_db_v1';
@@ -48,6 +51,8 @@ const INITIAL_DATABASE: DatabaseSchema = {
   customerSales: [],
   customerPayments: [],
   supplyRequests: [],
+  customerReturns: [],
+  customerWeeklyCloses: [],
   distributors: [
     {
       id: 'dist-1',
@@ -518,7 +523,9 @@ class StorageService {
             customerSales: Array.isArray(parsed.customerSales) ? parsed.customerSales : [],
             customerPayments: Array.isArray(parsed.customerPayments) ? parsed.customerPayments : [],
             supplyRequests: Array.isArray(parsed.supplyRequests) ? parsed.supplyRequests : [],
-            version: 2
+            customerReturns: Array.isArray(parsed.customerReturns) ? parsed.customerReturns : [],
+            customerWeeklyCloses: Array.isArray(parsed.customerWeeklyCloses) ? parsed.customerWeeklyCloses : [],
+            version: 3
           };
         }
       }
@@ -1069,7 +1076,8 @@ class StorageService {
     if (!customer) return 0;
     const sales = this.db.customerSales.filter(s => s.customerId === customerId).reduce((sum, s) => sum + s.creditYER, 0);
     const payments = this.db.customerPayments.filter(p => p.customerId === customerId).reduce((sum, p) => sum + p.amountYER, 0);
-    return (customer.openingDebtYER || 0) + sales - payments;
+    const approvedReturns = (this.db.customerReturns || []).filter(r => r.customerId === customerId && r.status === 'APPROVED').reduce((sum, r) => sum + r.totalYER, 0);
+    return (customer.openingDebtYER || 0) + sales - payments - approvedReturns;
   }
 
   public getCustomerSales(customerId?: string): CustomerSale[] {
@@ -1189,6 +1197,100 @@ class StorageService {
     request.reviewedBy = reviewedBy;
     this.commit();
     return { success: true };
+  }
+
+
+  // ===================== مرتجعات وتالف العملاء =====================
+  public getCustomerReturns(customerId?: string): CustomerReturn[] {
+    return (this.db.customerReturns || []).filter(r => !customerId || r.customerId === customerId).slice().sort((a,b) => b.createdAt-a.createdAt);
+  }
+
+  public createCustomerReturn(data: {
+    customerId: string; distributorId: string; date: string; saleId?: string;
+    items: { productId: string; quantity: number; disposition: 'DAMAGED'|'RETURNED'|'EXCHANGE' }[];
+    reason: string; note?: string;
+  }): { success: boolean; error?: string; customerReturn?: CustomerReturn } {
+    const customer = this.getCustomerById(data.customerId);
+    const distributor = this.getDistributorById(data.distributorId);
+    if (!customer || !distributor || customer.assignedDistributorId !== distributor.id) return { success:false, error:'البقالة أو الموزع غير صحيح' };
+    if (!data.items.length || !data.reason.trim()) return { success:false, error:'أدخل الأصناف وسبب المرتجع أو التالف' };
+    const items: CustomerReturn['items'] = [];
+    let totalYER = 0;
+    for (const row of data.items) {
+      const product = this.getProductById(row.productId);
+      if (!product || !Number.isFinite(row.quantity) || row.quantity <= 0) return { success:false, error:'تحقق من الصنف والكمية' };
+      const unitPriceYER = product.distributorPriceYER;
+      const total = unitPriceYER * row.quantity;
+      totalYER += total;
+      items.push({ productId:product.id, productName:product.name, unit:product.unit, quantity:row.quantity, unitPriceYER, totalYER:total, disposition:row.disposition });
+    }
+    const entry: CustomerReturn = {
+      id:'cret-' + Date.now(), displayNumber:'CR-' + (this.db.customerReturns.length + 1001),
+      customerId:customer.id, customerName:customer.name, distributorId:distributor.id, distributorName:distributor.name,
+      saleId:data.saleId, date:data.date, createdAt:Date.now(), items, totalYER, reason:data.reason.trim(),
+      status:'PENDING', note:data.note
+    };
+    this.db.customerReturns.unshift(entry);
+    this.commit();
+    return { success:true, customerReturn:entry };
+  }
+
+  public reviewCustomerReturn(id: string, status: Extract<CustomerReturnStatus,'APPROVED'|'REJECTED'>, reviewedBy='المدير'): {success:boolean;error?:string} {
+    const entry = this.db.customerReturns.find(r => r.id === id);
+    if (!entry) return {success:false,error:'حركة المرتجع غير موجودة'};
+    if (entry.status !== 'PENDING') return {success:false,error:'تمت مراجعة هذه الحركة مسبقاً'};
+    if (status === 'APPROVED') {
+      // Only accepted, non-damaged goods may return to saleable stock.
+      for (const item of entry.items) {
+        if (item.disposition === 'RETURNED' || item.disposition === 'EXCHANGE') {
+          const product = this.getProductById(item.productId);
+          if (product) product.stockQty += item.quantity;
+        }
+      }
+    }
+    entry.status=status; entry.reviewedAt=Date.now(); entry.reviewedBy=reviewedBy;
+    this.commit();
+    return {success:true};
+  }
+
+  // ===================== الإقفال الأسبوعي للعملاء =====================
+  public getCustomerWeeklyCloses(): CustomerWeeklyClose[] {
+    return (this.db.customerWeeklyCloses || []).slice().sort((a,b)=>b.weekKey.localeCompare(a.weekKey));
+  }
+
+  public closeCustomerWeek(weekKey: string, closedBy='المدير'): {success:boolean;error?:string;close?:CustomerWeeklyClose} {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(weekKey)) return {success:false,error:'تاريخ بداية الأسبوع غير صحيح'};
+    if (this.db.customerWeeklyCloses.some(c=>c.weekKey===weekKey)) return {success:false,error:'تم إقفال هذا الأسبوع سابقاً؛ لا يمكن تكرار الإقفال'};
+    const start = new Date(weekKey + 'T00:00:00');
+    const end = new Date(start); end.setDate(end.getDate()+6);
+    const endKey = end.getFullYear()+'-'+String(end.getMonth()+1).padStart(2,'0')+'-'+String(end.getDate()).padStart(2,'0');
+    const activeCustomers = this.db.customers.filter(c=>c.active);
+    const customerBalances = activeCustomers.map(c=>{
+      const sales = this.db.customerSales.filter(x=>x.customerId===c.id && x.date>=weekKey && x.date<=endKey);
+      const payments = this.db.customerPayments.filter(x=>x.customerId===c.id && x.date>=weekKey && x.date<=endKey);
+      const returns = this.db.customerReturns.filter(x=>x.customerId===c.id && x.status==='APPROVED' && x.date>=weekKey && x.date<=endKey);
+      const priorSales = this.db.customerSales.filter(x=>x.customerId===c.id && x.date<weekKey).reduce((n,x)=>n+x.creditYER,0);
+      const priorPayments = this.db.customerPayments.filter(x=>x.customerId===c.id && x.date<weekKey).reduce((n,x)=>n+x.amountYER,0);
+      const priorReturns = this.db.customerReturns.filter(x=>x.customerId===c.id && x.status==='APPROVED' && x.date<weekKey).reduce((n,x)=>n+x.totalYER,0);
+      const openingYER=(c.openingDebtYER||0)+priorSales-priorPayments-priorReturns;
+      const salesCreditYER=sales.reduce((n,x)=>n+x.creditYER,0);
+      const paymentsYER=payments.reduce((n,x)=>n+x.amountYER,0);
+      const returnsYER=returns.reduce((n,x)=>n+x.totalYER,0);
+      return {customerId:c.id,customerName:c.name,openingYER,salesCreditYER,paymentsYER,returnsYER,closingYER:openingYER+salesCreditYER-paymentsYER-returnsYER};
+    });
+    const sales=this.db.customerSales.filter(x=>x.date>=weekKey&&x.date<=endKey);
+    const payments=this.db.customerPayments.filter(x=>x.date>=weekKey&&x.date<=endKey);
+    const returns=this.db.customerReturns.filter(x=>x.status==='APPROVED'&&x.date>=weekKey&&x.date<=endKey);
+    const close: CustomerWeeklyClose={
+      id:'cweek-'+weekKey,weekKey,closedAt:Date.now(),closedBy,customerCount:activeCustomers.length,
+      totalSalesYER:sales.reduce((n,x)=>n+x.totalYER,0),
+      totalCollectionsYER:payments.reduce((n,x)=>n+x.amountYER,0),
+      totalApprovedReturnsYER:returns.reduce((n,x)=>n+x.totalYER,0),
+      customerBalances
+    };
+    this.db.customerWeeklyCloses.unshift(close);
+    this.commit();
+    return {success:true,close};
   }
 
   // ===================== الموردون (SUPPLIERS) =====================
@@ -1638,7 +1740,9 @@ class StorageService {
         customerSales: Array.isArray(parsed.customerSales) ? parsed.customerSales : [],
         customerPayments: Array.isArray(parsed.customerPayments) ? parsed.customerPayments : [],
         supplyRequests: Array.isArray(parsed.supplyRequests) ? parsed.supplyRequests : [],
-        version: 2
+        customerReturns: Array.isArray(parsed.customerReturns) ? parsed.customerReturns : [],
+        customerWeeklyCloses: Array.isArray(parsed.customerWeeklyCloses) ? parsed.customerWeeklyCloses : [],
+        version: 3
       };
       this.commit();
       return { success: true };
