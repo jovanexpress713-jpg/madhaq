@@ -2,6 +2,9 @@ import { RecipeLibraryItem } from '../data/recipeLibrary';
 import { RECIPE_OPERATION_META, DEFAULT_RECIPE_OPERATION_META } from '../data/recipeOperations';
 
 const STORAGE_KEY = 'madhaq_factory_db_v1';
+const MATERIAL_LINKS_KEY = 'madhaq_recipe_material_links_v1';
+type MaterialLinks = Record<string, string>;
+function readMaterialLinks(): MaterialLinks { try { const raw = localStorage.getItem(MATERIAL_LINKS_KEY); const value = raw ? JSON.parse(raw) : {}; return value && typeof value === 'object' ? value : {}; } catch { return {}; } }
 type Material = { id: string; name: string; unit: string; stockQty: number; averageCostPerUnitYER: number; active?: boolean };
 type Product = { id: string; name: string; category: string; unit: string; factoryPriceYER: number; distributorPriceYER: number; stockQty: number; minimumQty: number; active: boolean; createdAt: number };
 type ProductionPlanRow = { name: string; grams: number; material: Material | null; stockRequired: number | null; costYER: number | null; enough: boolean };
@@ -26,9 +29,11 @@ function readDb(): any {
   db.productionBatches = Array.isArray(db.productionBatches) ? db.productionBatches : [];
   return db;
 }
-function findMaterial(name: string, materials: Material[]): Material | null {
+function findMaterial(name: string, materials: Material[], recipeId: string): Material | null {
   const target = normalize(name);
   const active = materials.filter((m) => m.active !== false);
+  const linkedId = readMaterialLinks()[recipeId + '::' + name];
+  if (linkedId) { const linked = active.find((m) => m.id === linkedId); if (linked) return linked; }
   return active.find((m) => normalize(m.name) === target) ?? null;
 }
 
@@ -46,7 +51,7 @@ export function planLibraryRecipe(recipe: RecipeLibraryItem, batchGrams: number)
   const db = readDb();
   const { scale, labor, packaging, other, nonMaterial } = scaledRecipeCosts(recipe, batchGrams);
   const rows: ProductionPlanRow[] = recipe.ingredients.map((ingredient) => {
-    const material = findMaterial(ingredient.name, db.rawMaterials);
+    const material = findMaterial(ingredient.name, db.rawMaterials, recipe.id);
     const grams = ingredient.grams * scale;
     const perUnit = material ? gramsPerStockUnit(material.unit) : null;
     const stockRequired = material && perUnit ? grams / perUnit : null;
