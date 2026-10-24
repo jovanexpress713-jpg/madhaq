@@ -1238,7 +1238,9 @@ class StorageService {
     for (const row of data.items) {
       const product = this.getProductById(row.productId);
       if (!product || !Number.isFinite(row.quantity) || row.quantity <= 0) return { success: false, error: 'تحقق من الأصناف والكميات المطلوبة' };
-      items.push({ productId: product.id, productName: product.name, unit: product.unit, quantity: row.quantity });
+      const existingItem = items.find(item => item.productId === product.id);
+      if (existingItem) existingItem.quantity += row.quantity;
+      else items.push({ productId: product.id, productName: product.name, unit: product.unit, quantity: row.quantity, producedQty: 0, batchIds: [] });
     }
     const request: SupplyRequest = {
       id: 'sreq-' + Date.now(), displayNumber: 'SR-' + (this.db.supplyRequests.length + 1001),
@@ -1642,13 +1644,33 @@ class StorageService {
     producedQty: number; // الناتج الفعلي السليم
     damagedQty: number; // الهالك أو التالف
     note?: string;
+    supplyRequestId?: string;
   }): { success: boolean; error?: string; batch?: ProductionBatch } {
     const recipe = this.getRecipeById(data.recipeId);
     if (!recipe) return { success: false, error: 'الوصفة غير موجودة' };
     const prod = this.getProductById(recipe.productId);
     if (!prod) return { success: false, error: 'المنتج النهائي غير موجود' };
+    if (!Number.isFinite(data.multiplier) || data.multiplier <= 0 ||
+        !Number.isFinite(data.producedQty) || data.producedQty <= 0 ||
+        !Number.isFinite(data.damagedQty) || data.damagedQty < 0) {
+      return { success:false, error:'تحقق من معيار الإنتاج والناتج السليم والتالف' };
+    }
+
+    const linkedRequest = data.supplyRequestId ? this.db.supplyRequests.find(r => r.id === data.supplyRequestId) : undefined;
+    if (data.supplyRequestId && (!linkedRequest || linkedRequest.status !== 'IN_PRODUCTION')) {
+      return { success:false, error:'طلب الإنتاج غير موجود أو ليس في حالة قيد الإنتاج' };
+    }
+    const linkedRequestItem = linkedRequest?.items.find(item => item.productId === prod.id);
+    if (linkedRequest && !linkedRequestItem) return { success:false, error:'الصنف المنتج لا يطابق أصناف طلب الموزع' };
+    if (linkedRequestItem && (linkedRequestItem.producedQty || 0) >= linkedRequestItem.quantity) {
+      return { success:false, error:'تم إنتاج الكمية المطلوبة لهذا الصنف مسبقاً' };
+    }
 
     const factor = Math.max(0.1, data.multiplier);
+    const plannedQty = Math.round(recipe.outputQty * factor);
+    if (linkedRequest && data.producedQty + data.damagedQty > plannedQty) {
+      return { success:false, error:'الناتج السليم والتالف يتجاوز الكمية المخططة للوصفة' };
+    }
 
     // التحقق من كفاية المواد الخام
     for (const item of recipe.items) {
@@ -1675,7 +1697,6 @@ class StorageService {
     // إضافة المنتج النهائي الصالح للمخزون
     this.updateProductStock(prod.id, data.producedQty);
 
-    const plannedQty = Math.round(recipe.outputQty * factor);
     const unitCostYER = data.producedQty > 0 ? Math.round(totalMaterialCostYER / data.producedQty) : 0;
 
     const nextSeq = this.db.productionBatches.length + 1001;
@@ -1693,10 +1714,20 @@ class StorageService {
       damagedQty: data.damagedQty,
       totalMaterialCostYER: Math.round(totalMaterialCostYER),
       unitCostYER,
-      note: data.note
+      note: data.note,
+      supplyRequestId: data.supplyRequestId
     };
 
     this.db.productionBatches.unshift(newBatch);
+    if (linkedRequest && linkedRequestItem) {
+      linkedRequestItem.producedQty = (linkedRequestItem.producedQty || 0) + data.producedQty;
+      linkedRequestItem.batchIds = [...(linkedRequestItem.batchIds || []), newBatch.id];
+      if (linkedRequest.items.every(item => (item.producedQty || 0) >= item.quantity)) {
+        linkedRequest.status = 'READY';
+        linkedRequest.reviewedAt = Date.now();
+        linkedRequest.reviewedBy = 'المعلم / الإنتاج';
+      }
+    }
     this.commit();
     return { success: true, batch: newBatch };
   }
