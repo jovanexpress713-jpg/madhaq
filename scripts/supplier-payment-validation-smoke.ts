@@ -2,12 +2,14 @@ import { validateSupplierPayment } from '../src/services/supplierValidation';
 import { DatabaseSchema } from '../src/types';
 
 const db = {
-  version: 2,
+  version: 3,
   areas: [],
   customers: [],
   customerSales: [],
   customerPayments: [],
   supplyRequests: [],
+  customerReturns: [],
+  customerWeeklyCloses: [],
   settings: {},
   distributors: [],
   products: [],
