@@ -13,12 +13,14 @@ import {
   Boxes,
   Package,
   Calendar,
-  Flame
+  Flame,
+  ClipboardList
 } from 'lucide-react';
 
 interface ProductionViewProps {
   isOpenBatchModal: boolean;
   onCloseBatchModal: () => void;
+  onOpenBatchModal: () => void;
   onSuccessBatch?: () => void;
 }
 
@@ -30,9 +32,10 @@ interface RecipeItemRow {
 export const ProductionView: React.FC<ProductionViewProps> = ({
   isOpenBatchModal,
   onCloseBatchModal,
+  onOpenBatchModal,
   onSuccessBatch
 }) => {
-  const [activeSubTab, setActiveSubTab] = useState<'RECIPES' | 'BATCHES'>('RECIPES');
+  const [activeSubTab, setActiveSubTab] = useState<'RECIPES' | 'BATCHES' | 'ORDERS'>('RECIPES');
   const [showAddRecipeModal, setShowAddRecipeModal] = useState(false);
   const [editingRecipe, setEditingRecipe] = useState<Recipe | null>(null);
 
@@ -54,9 +57,12 @@ export const ProductionView: React.FC<ProductionViewProps> = ({
   const [batchDate, setBatchDate] = useState(new Date().toISOString().slice(0, 10));
   const [batchNote, setBatchNote] = useState('');
   const [batchError, setBatchError] = useState('');
+  const [activeSupplyRequestId, setActiveSupplyRequestId] = useState('');
+  const [orderMessage, setOrderMessage] = useState('');
 
   const recipes = storage.getRecipes();
   const batches = storage.getProductionBatches();
+  const productionRequests = storage.getSupplyRequests().filter(r => r.status === 'IN_PRODUCTION');
   const products = storage.getProducts().filter((p) => p.active);
   const rawMaterials = storage.getRawMaterials().filter((r) => r.active);
 
@@ -70,10 +76,10 @@ export const ProductionView: React.FC<ProductionViewProps> = ({
       }
       setBatchDamagedQty(0);
       setBatchDate(new Date().toISOString().slice(0, 10));
-      setBatchNote('');
+      if (!activeSupplyRequestId) setBatchNote('');
       setBatchError('');
     }
-  }, [isOpenBatchModal, recipes]);
+  }, [isOpenBatchModal, recipes, activeSupplyRequestId]);
 
   const selectedRecipeForBatch = recipes.find((r) => r.id === batchRecipeId);
 
@@ -165,6 +171,34 @@ export const ProductionView: React.FC<ProductionViewProps> = ({
     setShowAddRecipeModal(false);
   };
 
+  const startSupplyRequestProduction = (requestId: string, productId: string) => {
+    setOrderMessage('');
+    const request = storage.getSupplyRequests().find(r => r.id === requestId);
+    const item = request?.items.find(x => x.productId === productId);
+    if (!request || request.status !== 'IN_PRODUCTION' || !item) {
+      setOrderMessage('تعذر فتح الطلب؛ حدّث القائمة وتحقق من حالته.');
+      return;
+    }
+    const recipe = recipes.find(r => r.productId === productId && r.active);
+    if (!recipe) {
+      setOrderMessage(`لا توجد وصفة إنتاج نشطة للصنف ${item.productName}. أضف أو فعّل وصفة له أولًا.`);
+      setActiveSubTab('ORDERS');
+      return;
+    }
+    const remaining = Math.max(1, item.quantity - (item.producedQty || 0));
+    const multiplier = Math.max(1, Math.ceil(remaining / recipe.outputQty));
+    const planned = Math.round(recipe.outputQty * multiplier);
+    setActiveSupplyRequestId(request.id);
+    setBatchRecipeId(recipe.id);
+    setBatchMultiplier(multiplier);
+    setBatchProducedQty(planned);
+    setBatchDamagedQty(0);
+    setBatchDate(new Date().toISOString().slice(0,10));
+    setBatchNote(`طلب ${request.displayNumber} — ${request.customerName || request.distributorName} — المطلوب ${item.quantity} ${item.unit}`);
+    setBatchError('');
+    onOpenBatchModal();
+  };
+
   const handleExecuteBatch = (e: React.FormEvent) => {
     e.preventDefault();
     if (!batchRecipeId) {
@@ -178,7 +212,8 @@ export const ProductionView: React.FC<ProductionViewProps> = ({
       multiplier: Number(batchMultiplier) || 1,
       producedQty: Number(batchProducedQty) || 0,
       damagedQty: Number(batchDamagedQty) || 0,
-      note: batchNote.trim()
+      note: batchNote.trim(),
+      supplyRequestId: activeSupplyRequestId || undefined
     });
 
     if (!res.success) {
@@ -186,6 +221,9 @@ export const ProductionView: React.FC<ProductionViewProps> = ({
       return;
     }
 
+    setActiveSupplyRequestId('');
+    setOrderMessage('تم تسجيل دفعة الإنتاج وربطها بطلب الموزع. تم تحديث تقدم الطلب تلقائيًا.');
+    setActiveSubTab('ORDERS');
     onCloseBatchModal();
     if (onSuccessBatch) onSuccessBatch();
   };
@@ -245,6 +283,18 @@ export const ProductionView: React.FC<ProductionViewProps> = ({
         >
           <UtensilsCrossed className="w-4 h-4" />
           <span>معايير الوصفات ({recipes.length})</span>
+        </button>
+
+        <button
+          onClick={() => setActiveSubTab('ORDERS')}
+          className={`flex items-center gap-2 px-4 py-2 rounded-2xl text-xs sm:text-sm font-bold transition ${
+            activeSubTab === 'ORDERS'
+              ? 'bg-amber-500 text-stone-950 shadow-sm'
+              : 'text-stone-500 dark:text-stone-400 hover:bg-stone-100 dark:hover:bg-stone-800'
+          }`}
+        >
+          <ClipboardList className="w-4 h-4" />
+          <span>طلبات الإنتاج ({productionRequests.length})</span>
         </button>
 
         <button
@@ -334,6 +384,34 @@ export const ProductionView: React.FC<ProductionViewProps> = ({
       )}
 
       {/* SubTab 2: Batches list */}
+      {activeSubTab === 'ORDERS' && (
+        <div className="space-y-4">
+          {orderMessage && <div className="rounded-xl border border-amber-200 bg-amber-50 text-amber-900 px-4 py-3 text-sm">{orderMessage}</div>}
+          {productionRequests.length === 0 ? (
+            <div className="py-12 text-center text-stone-400 text-sm bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 rounded-3xl">
+              لا توجد طلبات محوّلة إلى الإنتاج حاليًا. عندما يعتمد المدير طلب الموزع ويحوّله للإنتاج سيظهر هنا.
+            </div>
+          ) : productionRequests.map(request => (
+            <div key={request.id} className="bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 rounded-3xl p-4 sm:p-5 space-y-3">
+              <div className="flex flex-wrap items-start justify-between gap-2">
+                <div><strong className="text-amber-600">{request.displayNumber}</strong><h3 className="font-black mt-1">{request.customerName || 'طلب توريد عام'}</h3><p className="text-xs text-stone-500 mt-1">{request.distributorName} · {request.governorate} / {request.district} / {request.locality} · موعد الطلب {request.requestedDate}</p></div>
+                <span className="rounded-lg bg-blue-100 text-blue-800 px-2 py-1 text-xs font-bold">قيد الإنتاج</span>
+              </div>
+              <div className="space-y-2">{request.items.map(item => {
+                const recipe = recipes.find(r => r.productId === item.productId && r.active);
+                const done = item.producedQty || 0;
+                const percent = Math.min(100, Math.round(done / item.quantity * 100));
+                return <div key={item.productId} className="rounded-xl bg-stone-50 dark:bg-stone-800/60 p-3 space-y-2">
+                  <div className="flex flex-wrap justify-between gap-2"><strong className="text-sm">{item.productName}</strong><span className="text-xs text-stone-500">المطلوب {item.quantity} · المنتج {done} · المتبقي {Math.max(0,item.quantity-done)} {item.unit}</span></div>
+                  <div className="h-2 rounded-full bg-stone-200 dark:bg-stone-700 overflow-hidden"><div className="h-full bg-emerald-500 rounded-full" style={{width: percent + '%'}} /></div>
+                  <div className="flex flex-wrap items-center justify-between gap-2"><span className={`text-xs ${recipe?'text-emerald-600':'text-amber-600'}`}>{recipe ? 'الوصفة جاهزة للإنتاج: '+recipe.name : 'لا توجد وصفة نشطة لهذا الصنف'}</span>{done < item.quantity && <button onClick={() => startSupplyRequestProduction(request.id,item.productId)} className="rounded-xl bg-amber-500 px-4 py-2 text-xs font-black text-stone-950">{done > 0 ? 'استكمال الإنتاج' : 'بدء إنتاج الصنف'}</button>}</div>
+                </div>;
+              })}</div>
+            </div>
+          ))}
+        </div>
+      )}
+
       {activeSubTab === 'BATCHES' && (
         <div className="space-y-3">
           {batches.length === 0 ? (
