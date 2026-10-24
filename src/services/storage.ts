@@ -13,7 +13,13 @@ import {
   ProductionBatch,
   Expense,
   DistributorLedgerItem,
-  ThursdayReportRow
+  ThursdayReportRow,
+  CustomerArea,
+  ShopCustomer,
+  CustomerSale,
+  CustomerPayment,
+  SupplyRequest,
+  SupplyRequestStatus
 } from '../types';
 
 const STORAGE_KEY = 'madhaq_factory_db_v1';
@@ -36,7 +42,12 @@ export function formatNumber(val: number, decimals = 0): string {
 
 // بيانات نموذجية واقعية للتشغيل الأولي لمعمل حلويات "مذاق"
 const INITIAL_DATABASE: DatabaseSchema = {
-  version: 1,
+  version: 2,
+  areas: [],
+  customers: [],
+  customerSales: [],
+  customerPayments: [],
+  supplyRequests: [],
   distributors: [
     {
       id: 'dist-1',
@@ -500,7 +511,15 @@ class StorageService {
       if (raw) {
         const parsed = JSON.parse(raw);
         if (parsed && parsed.version) {
-          return parsed;
+          return {
+            ...parsed,
+            areas: Array.isArray(parsed.areas) ? parsed.areas : [],
+            customers: Array.isArray(parsed.customers) ? parsed.customers : [],
+            customerSales: Array.isArray(parsed.customerSales) ? parsed.customerSales : [],
+            customerPayments: Array.isArray(parsed.customerPayments) ? parsed.customerPayments : [],
+            supplyRequests: Array.isArray(parsed.supplyRequests) ? parsed.supplyRequests : [],
+            version: 2
+          };
         }
       }
     } catch (e) {
@@ -989,6 +1008,187 @@ class StorageService {
     this.db.returns.unshift(newRet);
     this.commit();
     return { success: true, returnEntry: newRet };
+  }
+
+
+  // ===================== العملاء والبقالات وحساباتهم =====================
+  public getAreas(): CustomerArea[] { return [...this.db.areas]; }
+
+  public saveArea(data: Omit<CustomerArea, 'id' | 'createdAt'> & { id?: string }): CustomerArea {
+    const duplicate = this.db.areas.find(a =>
+      a.id !== data.id && a.governorate === data.governorate &&
+      a.district.trim() === data.district.trim() && a.locality.trim() === data.locality.trim()
+    );
+    if (duplicate) return duplicate;
+    if (data.id) {
+      const existing = this.db.areas.find(a => a.id === data.id);
+      if (existing) {
+        Object.assign(existing, data);
+        this.commit();
+        return existing;
+      }
+    }
+    const area: CustomerArea = { ...data, id: 'area-' + Date.now(), createdAt: Date.now() };
+    this.db.areas.unshift(area);
+    this.commit();
+    return area;
+  }
+
+  public getCustomers(): ShopCustomer[] { return [...this.db.customers]; }
+  public getCustomerById(id: string): ShopCustomer | undefined {
+    return this.db.customers.find(c => c.id === id);
+  }
+
+  public saveCustomer(data: Omit<ShopCustomer, 'id' | 'createdAt'> & { id?: string }): { success: boolean; error?: string; customer?: ShopCustomer } {
+    if (!data.name.trim()) return { success: false, error: 'اسم البقالة مطلوب' };
+    if (!data.governorate.trim() || !data.district.trim() || !data.locality.trim()) {
+      return { success: false, error: 'المحافظة والمديرية والمنطقة/القرية مطلوبة' };
+    }
+    if (!this.getDistributorById(data.assignedDistributorId)) return { success: false, error: 'اختر الموزع المسؤول عن البقالة' };
+    const duplicate = this.db.customers.find(c => c.id !== data.id &&
+      ((data.phone && c.phone === data.phone) ||
+       (c.name.trim().toLowerCase() === data.name.trim().toLowerCase() &&
+        c.district === data.district && c.locality === data.locality)));
+    if (duplicate) return { success: false, error: 'توجد بقالة مشابهة بالاسم أو الهاتف؛ راجع السجل قبل إنشاء سجل جديد' };
+    if (data.id) {
+      const existing = this.getCustomerById(data.id);
+      if (existing) {
+        Object.assign(existing, data);
+        this.commit();
+        return { success: true, customer: existing };
+      }
+    }
+    const customer: ShopCustomer = { ...data, id: 'shop-' + Date.now(), createdAt: Date.now() };
+    this.db.customers.unshift(customer);
+    this.commit();
+    return { success: true, customer };
+  }
+
+  public getCustomerBalance(customerId: string): number {
+    const customer = this.getCustomerById(customerId);
+    if (!customer) return 0;
+    const sales = this.db.customerSales.filter(s => s.customerId === customerId).reduce((sum, s) => sum + s.creditYER, 0);
+    const payments = this.db.customerPayments.filter(p => p.customerId === customerId).reduce((sum, p) => sum + p.amountYER, 0);
+    return (customer.openingDebtYER || 0) + sales - payments;
+  }
+
+  public getCustomerSales(customerId?: string): CustomerSale[] {
+    return this.db.customerSales.filter(s => !customerId || s.customerId === customerId).slice().sort((a,b) => b.createdAt-a.createdAt);
+  }
+
+  public createCustomerSale(data: {
+    customerId: string; distributorId: string; date: string;
+    items: { productId: string; quantity: number; unitPriceYER?: number }[];
+    paidYER: number; dueDate?: string; note?: string;
+  }): { success: boolean; error?: string; sale?: CustomerSale } {
+    const customer = this.getCustomerById(data.customerId);
+    const distributor = this.getDistributorById(data.distributorId);
+    if (!customer || !customer.active) return { success: false, error: 'البقالة غير موجودة أو غير مفعلة' };
+    if (!distributor || !distributor.active) return { success: false, error: 'الموزع غير موجود أو غير مفعل' };
+    if (customer.assignedDistributorId !== distributor.id) return { success: false, error: 'هذه البقالة مسندة إلى موزع آخر' };
+    if (!data.items.length) return { success: false, error: 'أضف صنفاً واحداً على الأقل' };
+    let totalYER = 0;
+    const items: CustomerSale['items'] = [];
+    for (const row of data.items) {
+      const product = this.getProductById(row.productId);
+      if (!product || !Number.isFinite(row.quantity) || row.quantity <= 0) return { success: false, error: 'تحقق من الصنف والكمية؛ يجب أن تكون الكمية أكبر من صفر' };
+      const unitPriceYER = row.unitPriceYER ?? product.distributorPriceYER;
+      if (!Number.isFinite(unitPriceYER) || unitPriceYER < 0) return { success: false, error: 'سعر البيع غير صحيح' };
+      const line = row.quantity * unitPriceYER;
+      totalYER += line;
+      items.push({ productId: product.id, productName: product.name, unit: product.unit, quantity: row.quantity, unitPriceYER, totalYER: line });
+    }
+    if (!Number.isFinite(data.paidYER) || data.paidYER < 0 || data.paidYER > totalYER) return { success: false, error: 'المبلغ المدفوع يجب أن يكون بين صفر وإجمالي الفاتورة' };
+    const creditYER = totalYER - data.paidYER;
+    const currentDebt = this.getCustomerBalance(customer.id);
+    const nextSeq = this.db.customerSales.length + 1001;
+    const dateObj = new Date(data.date + 'T12:00:00');
+    const monday = new Date(dateObj);
+    const day = (monday.getDay() + 6) % 7;
+    monday.setDate(monday.getDate() - day);
+    const weekKey = monday.toISOString().slice(0,10);
+    const sale: CustomerSale = {
+      id: 'csale-' + Date.now(), displayNumber: 'CS-' + nextSeq,
+      customerId: customer.id, customerName: customer.name,
+      distributorId: distributor.id, distributorName: distributor.name,
+      governorate: customer.governorate, district: customer.district, locality: customer.locality,
+      date: data.date, createdAt: Date.now(), items, totalYER, paidYER: data.paidYER,
+      creditYER, dueDate: data.dueDate, note: data.note, weekKey
+    };
+    this.db.customerSales.unshift(sale);
+    this.commit();
+    return { success: true, sale };
+  }
+
+  public getCustomerPayments(customerId?: string): CustomerPayment[] {
+    return this.db.customerPayments.filter(p => !customerId || p.customerId === customerId).slice().sort((a,b) => b.createdAt-a.createdAt);
+  }
+
+  public createCustomerPayment(data: {
+    customerId: string; distributorId: string; date: string;
+    amountYER: number; method: 'CASH' | 'TRANSFER'; note?: string;
+  }): { success: boolean; error?: string; payment?: CustomerPayment } {
+    const customer = this.getCustomerById(data.customerId);
+    if (!customer) return { success: false, error: 'البقالة غير موجودة' };
+    if (customer.assignedDistributorId !== data.distributorId) return { success: false, error: 'لا يحق لهذا الموزع تسجيل تحصيل لهذه البقالة' };
+    if (!Number.isFinite(data.amountYER) || data.amountYER <= 0) return { success: false, error: 'أدخل مبلغ تحصيل أكبر من صفر' };
+    const balance = this.getCustomerBalance(customer.id);
+    if (data.amountYER > balance) return { success: false, error: 'مبلغ التحصيل أكبر من رصيد البقالة الحالي' };
+    const payment: CustomerPayment = {
+      id: 'cpay-' + Date.now(), displayNumber: 'CP-' + (this.db.customerPayments.length + 1001),
+      customerId: customer.id, customerName: customer.name, distributorId: data.distributorId,
+      date: data.date, createdAt: Date.now(), amountYER: data.amountYER, method: data.method, note: data.note
+    };
+    this.db.customerPayments.unshift(payment);
+    this.commit();
+    return { success: true, payment };
+  }
+
+  public getSupplyRequests(distributorId?: string): SupplyRequest[] {
+    return this.db.supplyRequests.filter(r => !distributorId || r.distributorId === distributorId).slice().sort((a,b) => b.createdAt-a.createdAt);
+  }
+
+  public createSupplyRequest(data: {
+    distributorId: string; customerId?: string; governorate: string; district: string; locality: string;
+    requestedDate: string; items: { productId: string; quantity: number }[]; note?: string;
+  }): { success: boolean; error?: string; request?: SupplyRequest } {
+    const distributor = this.getDistributorById(data.distributorId);
+    if (!distributor) return { success: false, error: 'الموزع غير موجود' };
+    if (!data.items.length) return { success: false, error: 'أضف صنفاً واحداً على الأقل للطلب' };
+    const customer = data.customerId ? this.getCustomerById(data.customerId) : undefined;
+    if (data.customerId && !customer) return { success: false, error: 'البقالة المحددة غير موجودة' };
+    const items: SupplyRequest['items'] = [];
+    for (const row of data.items) {
+      const product = this.getProductById(row.productId);
+      if (!product || !Number.isFinite(row.quantity) || row.quantity <= 0) return { success: false, error: 'تحقق من الأصناف والكميات المطلوبة' };
+      items.push({ productId: product.id, productName: product.name, unit: product.unit, quantity: row.quantity });
+    }
+    const request: SupplyRequest = {
+      id: 'sreq-' + Date.now(), displayNumber: 'SR-' + (this.db.supplyRequests.length + 1001),
+      distributorId: distributor.id, distributorName: distributor.name, customerId: customer?.id, customerName: customer?.name,
+      governorate: data.governorate, district: data.district, locality: data.locality,
+      requestedDate: data.requestedDate, createdAt: Date.now(), items, status: 'SUBMITTED', note: data.note
+    };
+    this.db.supplyRequests.unshift(request);
+    this.commit();
+    return { success: true, request };
+  }
+
+  public updateSupplyRequestStatus(id: string, status: SupplyRequestStatus, reviewedBy = 'المدير'): { success: boolean; error?: string } {
+    const request = this.db.supplyRequests.find(r => r.id === id);
+    if (!request) return { success: false, error: 'الطلب غير موجود' };
+    const allowed: Record<SupplyRequestStatus, SupplyRequestStatus[]> = {
+      SUBMITTED: ['APPROVED','REJECTED','CANCELLED'],
+      APPROVED: ['IN_PRODUCTION','READY','CANCELLED'],
+      REJECTED: [], IN_PRODUCTION: ['READY','CANCELLED'], READY: ['FULFILLED','CANCELLED'],
+      FULFILLED: [], CANCELLED: []
+    };
+    if (!allowed[request.status].includes(status)) return { success: false, error: 'انتقال حالة الطلب غير مسموح' };
+    request.status = status;
+    request.reviewedAt = Date.now();
+    request.reviewedBy = reviewedBy;
+    this.commit();
+    return { success: true };
   }
 
   // ===================== الموردون (SUPPLIERS) =====================
