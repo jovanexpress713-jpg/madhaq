@@ -270,7 +270,7 @@ export const CustomerOperationsView: React.FC = () => {
           {r.note&&<p className="text-xs text-stone-500">{r.note}</p>}
           {r.status==='SUBMITTED'&&<div className="flex gap-2"><button onClick={()=>setStatus(r.id,'APPROVED')} className="rounded-lg bg-emerald-600 text-white px-3 py-2 text-xs font-bold">اعتماد الطلب</button><button onClick={()=>setStatus(r.id,'REJECTED')} className="rounded-lg bg-red-100 text-red-700 px-3 py-2 text-xs font-bold">رفض</button></div>}
           {r.status==='APPROVED'&&<div className="flex gap-2"><button onClick={()=>setStatus(r.id,'IN_PRODUCTION')} className="rounded-lg bg-blue-100 text-blue-800 px-3 py-2 text-xs font-bold">تحويل للإنتاج</button><button onClick={()=>setStatus(r.id,'READY')} className="rounded-lg bg-emerald-100 text-emerald-800 px-3 py-2 text-xs font-bold">جاهز من المخزون</button></div>}
-          {r.status==='IN_PRODUCTION'&&<button onClick={()=>setStatus(r.id,'READY')} className="rounded-lg bg-emerald-100 text-emerald-800 px-3 py-2 text-xs font-bold">تأكيد الجاهزية</button>}
+          {r.status==='IN_PRODUCTION'&&<p className="rounded-lg bg-blue-50 dark:bg-blue-950/30 text-blue-800 dark:text-blue-300 px-3 py-2 text-xs">تم تحويل الطلب إلى شاشة الإنتاج. تتحول الحالة إلى جاهز تلقائيًا بعد تسجيل إنتاج جميع الأصناف المطلوبة.</p>}
           {r.status==='READY'&&<button onClick={()=>setStatus(r.id,'FULFILLED')} className="rounded-lg bg-stone-900 text-white px-3 py-2 text-xs font-bold">تأكيد التسليم</button>}
         </div>)}
       </div>
