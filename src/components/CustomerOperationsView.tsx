@@ -93,7 +93,7 @@ export const CustomerOperationsView: React.FC = () => {
   const submitCustomer = (e: React.FormEvent) => {
     e.preventDefault(); resetNotice();
     const result = storage.saveCustomer({
-      name: customerName, contactName, phone, governorate, district, locality, address,
+      name: customerName, contactName, phone, governorate: 'البيضاء', district, locality, address,
       assignedDistributorId: distributorId, openingDebtYER: Number(openingDebt || 0),
       active: true, notes
     });
@@ -175,7 +175,7 @@ export const CustomerOperationsView: React.FC = () => {
         <h3 className="font-black flex gap-2 items-center"><Plus className="w-4 h-4 text-amber-500"/>إضافة بقالة جديدة</h3>
         <input className={field} placeholder="اسم البقالة *" value={customerName} onChange={e=>setCustomerName(e.target.value)} required/>
         <div className="grid grid-cols-2 gap-2"><input className={field} placeholder="اسم المسؤول" value={contactName} onChange={e=>setContactName(e.target.value)}/><input className={field} placeholder="رقم الهاتف" value={phone} onChange={e=>setPhone(e.target.value)}/></div>
-        <div className="grid grid-cols-2 gap-2"><input className={field} value={governorate} onChange={e=>setGovernorate(e.target.value)} placeholder="المحافظة" required/><input className={field} list="madhaq-districts" value={district} onChange={e=>setDistrict(e.target.value)} placeholder="المديرية *" required/><datalist id="madhaq-districts">{areaDistrictOptions.map(d=><option key={d} value={d}/>)}</datalist></div>
+        <div className="grid grid-cols-2 gap-2"><div className={field+" flex items-center text-stone-600 dark:text-stone-300"} aria-label="المحافظة">المحافظة: البيضاء</div><input className={field} list="madhaq-districts" value={district} onChange={e=>setDistrict(e.target.value)} placeholder="المديرية *" required/><datalist id="madhaq-districts">{areaDistrictOptions.map(d=><option key={d} value={d}/>)}</datalist></div>
         <input className={field} list="madhaq-localities" value={locality} onChange={e=>setLocality(e.target.value)} placeholder="المنطقة / الحي / القرية *" required/><datalist id="madhaq-localities">{areaLocalityOptions.map(l=><option key={l} value={l}/>)}</datalist>
         <input className={field} value={address} onChange={e=>setAddress(e.target.value)} placeholder="العنوان التفصيلي أو علامة مميزة"/>
         <select className={field} value={distributorId} onChange={e=>setDistributorId(e.target.value)} required><option value="">اختر الموزع المسؤول *</option>{distributors.map(d=><option key={d.id} value={d.id}>{d.name}</option>)}</select>
