@@ -11,6 +11,7 @@
     "lint": "tsc --noEmit",
     "verify:production": "tsx scripts/production-validation-smoke.ts",
     "verify:distribution-returns": "tsx scripts/distribution-return-workflow-smoke.ts",
+    "verify:thursday-range": "tsx scripts/thursday-week-range-smoke.ts",
     "verify:purchases": "tsx scripts/purchase-validation-smoke.ts",
     "verify:returns": "tsx scripts/return-pricing-smoke.ts",
     "verify:supplier-payments": "tsx scripts/supplier-payment-validation-smoke.ts",
