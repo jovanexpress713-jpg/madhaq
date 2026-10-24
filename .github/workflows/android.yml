@@ -60,6 +60,7 @@ jobs:
         run: |
           bun run verify:production
           bun run verify:distribution-returns
+          bun run verify:thursday-range
           bun run verify:purchases
           bun run verify:returns
           bun run verify:supplier-payments
