@@ -1,8 +1,8 @@
-import React from 'react';
+import React, { lazy, Suspense } from 'react';
 import { LayoutDashboard, Truck, Receipt, Users, CalendarCheck, UtensilsCrossed, Package, Boxes, Building2, Wallet, ChefHat, BookOpen, Factory } from 'lucide-react';
-import { RecipesView } from './RecipesView';
-import { RecipeLibraryView } from './RecipeLibraryView';
-import { ManufacturedMaterialsView } from './ManufacturedMaterialsView';
+const RecipesView = lazy(() => import('./RecipesView').then((module) => ({ default: module.RecipesView })));
+const RecipeLibraryView = lazy(() => import('./RecipeLibraryView').then((module) => ({ default: module.RecipeLibraryView })));
+const ManufacturedMaterialsView = lazy(() => import('./ManufacturedMaterialsView').then((module) => ({ default: module.ManufacturedMaterialsView })));
 
 interface NavigationTabsProps { activeTab: string; onSelectTab: (tab: string) => void; }
 
@@ -30,4 +30,4 @@ export const NavigationTabs: React.FC<NavigationTabsProps> = ({ activeTab, onSel
   </>;
 };
 
-const Overlay: React.FC<{children:React.ReactNode;onBack:()=>void}>=({children,onBack})=><section className="w-full bg-stone-100 dark:bg-stone-950 pb-6"><div className="max-w-7xl mx-auto p-3 sm:p-5 lg:p-6"><div className="flex items-center justify-between gap-3 mb-4 rounded-2xl border border-stone-200 dark:border-stone-800 bg-white dark:bg-stone-900 px-4 py-3 shadow-sm"><div className="text-xs font-bold text-stone-600 dark:text-stone-300">قسم مستقل <span className="mx-1 text-stone-300">/</span><span className="text-amber-600 dark:text-amber-400">إدارة المعمل</span></div><button onClick={onBack} className="touch-target inline-flex items-center justify-center gap-2 px-4 py-2 rounded-xl bg-stone-900 text-white dark:bg-stone-100 dark:text-stone-900 text-xs font-bold shadow-sm hover:opacity-90 transition">العودة للقسم السابق</button></div>{children}</div></section>;
+const Overlay: React.FC<{children:React.ReactNode;onBack:()=>void}>=({children,onBack})=><section className="w-full bg-stone-100 dark:bg-stone-950 pb-6"><div className="max-w-7xl mx-auto p-3 sm:p-5 lg:p-6"><div className="flex items-center justify-between gap-3 mb-4 rounded-2xl border border-stone-200 dark:border-stone-800 bg-white dark:bg-stone-900 px-4 py-3 shadow-sm"><div className="text-xs font-bold text-stone-600 dark:text-stone-300">قسم مستقل <span className="mx-1 text-stone-300">/</span><span className="text-amber-600 dark:text-amber-400">إدارة المعمل</span></div><button onClick={onBack} className="touch-target inline-flex items-center justify-center gap-2 px-4 py-2 rounded-xl bg-stone-900 text-white dark:bg-stone-100 dark:text-stone-900 text-xs font-bold shadow-sm hover:opacity-90 transition">العودة للقسم السابق</button></div><Suspense fallback={<div className="rounded-3xl border border-stone-200 dark:border-stone-800 bg-white dark:bg-stone-900 p-10 text-center text-sm font-bold text-stone-500">جارٍ تحميل القسم…</div>}>{children}</Suspense></div></section>;
