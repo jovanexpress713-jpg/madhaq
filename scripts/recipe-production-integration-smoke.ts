@@ -25,6 +25,8 @@ memory.set('madhaq_factory_db_v1', JSON.stringify(database));
 memory.set('madhaq_recipe_material_links_v1', JSON.stringify({
   'test-recipe::سكر': 'sugar-1',
   'test-recipe::دقيق': 'flour-1',
+  'duplicate-recipe::سكر-أول': 'sugar-1',
+  'duplicate-recipe::سكر-ثاني': 'sugar-1',
 }));
 
 const { planLibraryRecipe, produceLibraryRecipe } = await import('../src/services/recipeProduction');
@@ -42,6 +44,15 @@ const recipe = {
 const plan = planLibraryRecipe(recipe, 100);
 assert.equal(plan.ready, true, 'linked, sufficiently stocked recipe should be ready');
 assert.equal(plan.totalMaterialCostYER, 130, 'material cost must be calculated using stock-unit cost');
+
+const duplicateRecipe = {
+  ...recipe,
+  id: 'duplicate-recipe',
+  ingredients: [{ name: 'سكر-أول', grams: 600 }, { name: 'سكر-ثاني', grams: 600 }],
+};
+const duplicatePlan = planLibraryRecipe(duplicateRecipe, 100);
+assert.equal(duplicatePlan.ready, false, 'duplicate lines linked to one material must aggregate demand before stock checks');
+assert.equal(duplicatePlan.insufficient.length, 2, 'both lines should indicate the shared stock shortage');
 
 const result = produceLibraryRecipe({
   recipe,
