@@ -74,4 +74,11 @@ assert(storage.reviewCustomerReturn(damaged.customerReturn.id, 'APPROVED').succe
 assert(storage.getCustomerBalance(customer.id) === sale.creditYER - 123, 'Approved damaged goods should credit the customer at original sale price');
 assert(product.stockQty === originalStock, 'Damaged goods must not increase factory stock');
 
-console.log('Customer return workflow validation passed.');
+const close = storage.closeCustomerWeek('2026-10-19', 'اختبار');
+assert(close.success && close.close, 'Weekly close should be created');
+const snapshot = close.close.customerBalances.find(x => x.customerId === customer.id);
+assert(snapshot, 'Weekly close should include the customer');
+assert(snapshot.closingYER === storage.getCustomerBalance(customer.id), 'Weekly close balance must match the live customer ledger, including exchange neutrality');
+assert(!storage.closeCustomerWeek('2026-10-19', 'اختبار').success, 'The same week must not be closed twice');
+
+console.log('Customer return and weekly close workflow validation passed.');
