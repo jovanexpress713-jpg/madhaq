@@ -8,6 +8,8 @@ const db = {
   customerSales: [],
   customerPayments: [],
   supplyRequests: [],
+  customerReturns: [],
+  customerWeeklyCloses: [],
   distributors: [],
   products: [{ id: 'p1', name: 'منتج', category: 'حلويات', unit: 'حبة', factoryPriceYER: 100, distributorPriceYER: 150, stockQty: 0, minimumQty: 1, active: true, createdAt: 1 }],
   rawMaterials: [{ id: 'r1', name: 'خام', unit: 'كيلو', stockQty: 10, minimumQty: 1, averageCostPerUnitYER: 100, active: true, createdAt: 1 }],
