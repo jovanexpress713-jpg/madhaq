@@ -28,7 +28,7 @@ const readCustomPhotos = (): Record<string,string> => { try { const value = JSON
 const getCostPerGram = (material: any): number | null => {
   const cost = Number(material?.averageCostPerUnitYER ?? 0);
   if (!Number.isFinite(cost) || cost <= 0) return null;
-  const unit = normalize(String(material?.unit ?? '')).replace(/\\s/g, '');
+  const unit = normalize(String(material?.unit ?? '')).replace(/\s/g, '');
   if (unit.includes('كيس') && (unit.includes('50كجم') || unit.includes('50kg'))) return cost / 50000;
   if (unit.includes('كيس') && (unit.includes('25كجم') || unit.includes('25kg'))) return cost / 25000;
   if (unit.includes('سطل') && (unit.includes('5كجم') || unit.includes('5kg'))) return cost / 5000;
