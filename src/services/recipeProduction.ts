@@ -57,6 +57,18 @@ export function planLibraryRecipe(recipe: RecipeLibraryItem, batchGrams: number)
     const costYER = material && perUnit ? stockRequired! * Number(material.averageCostPerUnitYER || 0) : null;
     return { name: ingredient.name, grams, material, stockRequired, costYER, enough: Boolean(material && perUnit && material.stockQty >= (stockRequired || 0)) };
   });
+  // Aggregate repeated recipe lines that map to the same inventory item before checking stock.
+  const requiredByMaterial = new Map<string, number>();
+  for (const row of rows) {
+    if (row.material && row.stockRequired !== null) {
+      requiredByMaterial.set(row.material.id, (requiredByMaterial.get(row.material.id) ?? 0) + row.stockRequired);
+    }
+  }
+  for (const row of rows) {
+    if (row.material && row.stockRequired !== null) {
+      row.enough = row.material.stockQty >= (requiredByMaterial.get(row.material.id) ?? row.stockRequired);
+    }
+  }
   const missing = rows.filter((r) => !r.material || r.stockRequired === null);
   const insufficient = rows.filter((r) => r.material && r.stockRequired !== null && !r.enough);
   const totalMaterialCostYER = rows.reduce((s, r) => s + (r.costYER ?? 0), 0);
