@@ -42,6 +42,9 @@ jobs:
       - name: Customer return workflow validation
         run: bun run verify:customer-returns
 
+      - name: Supply request to production workflow validation
+        run: bun run verify:supply-production
+
       - name: Supplier payment business-rule validation
         run: bun run verify:supplier-payments
 
