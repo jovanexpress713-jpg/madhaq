@@ -37,6 +37,7 @@ const recipe = {
   laborCostYER: 0,
   packagingCostYER: 0,
   otherCostYER: 0,
+  notes: 'وصفة اختبار للتكامل فقط',
 };
 const plan = planLibraryRecipe(recipe, 100);
 assert.equal(plan.ready, true, 'linked, sufficiently stocked recipe should be ready');
