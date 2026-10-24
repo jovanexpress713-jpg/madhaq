@@ -1,5 +1,7 @@
 name: MADHAQ Android APK
 
+# Trigger Android build from the current main revision after workflow fixes.
+
 on:
   push:
     branches: [main]
