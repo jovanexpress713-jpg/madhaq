@@ -1,3 +1,4 @@
+import { calculateHistoricalReturnPricing } from './returnPricing';
 import {
   DatabaseSchema,
   Distributor,
@@ -843,32 +844,53 @@ class StorageService {
   }): { success: boolean; error?: string; distribution?: Distribution } {
     const dist = this.getDistributorById(data.distributorId);
     if (!dist) return { success: false, error: 'الموزع غير موجود' };
+    if (!Array.isArray(data.items) || data.items.length === 0) {
+      return { success: false, error: 'أضف صنفاً واحداً على الأقل إلى فاتورة التوزيع' };
+    }
+    if (!Number.isFinite(data.cashPaidYER) || data.cashPaidYER < 0) {
+      return { success: false, error: 'المبلغ النقدي يجب أن يكون رقماً صحيحاً غير سالب' };
+    }
 
-    // فحص المخزون وتجهيز البنود مع لقطة العمولة المحفوظة
     const processedItems: Distribution['items'] = [];
+    const requestedByProduct = new Map<string, number>();
     let grossYER = 0;
     let totalCommissionYER = 0;
 
     for (const item of data.items) {
+      if (!Number.isFinite(item.quantity) || item.quantity <= 0) {
+        return { success: false, error: 'كمية كل صنف يجب أن تكون أكبر من صفر' };
+      }
       const prod = this.getProductById(item.productId);
       if (!prod) return { success: false, error: `المنتج رقم ${item.productId} غير موجود` };
-      if (prod.stockQty < item.quantity) {
+
+      const alreadyRequested = requestedByProduct.get(prod.id) || 0;
+      const totalRequested = alreadyRequested + item.quantity;
+      if (prod.stockQty < totalRequested) {
         return {
           success: false,
-          error: `المخزون غير كافٍ للصنف (${prod.name}). المتاح: ${prod.stockQty} ${prod.unit}، والمطلوب: ${item.quantity}`
+          error: `المخزون غير كافٍ للصنف (${prod.name}). المتاح: ${prod.stockQty} ${prod.unit}، والمطلوب في الفاتورة: ${totalRequested}`
         };
       }
+      requestedByProduct.set(prod.id, totalRequested);
 
       const unitPriceYER = item.unitPriceYER ?? prod.distributorPriceYER;
+      if (!Number.isFinite(unitPriceYER) || unitPriceYER <= 0) {
+        return { success: false, error: `سعر البيع للصنف (${prod.name}) يجب أن يكون أكبر من صفر` };
+      }
       const lineTotal = item.quantity * unitPriceYER;
+      if (!Number.isFinite(lineTotal) || lineTotal <= 0) {
+        return { success: false, error: `تعذر حساب إجمالي الصنف (${prod.name})` };
+      }
       grossYER += lineTotal;
 
-      // حساب العمولة حسب إعدادات الموزع
       let commissionYER = 0;
       if (dist.commissionType === 'PER_PIECE') {
         commissionYER = item.quantity * dist.commissionValue;
       } else {
         commissionYER = (lineTotal * dist.commissionValue) / 100;
+      }
+      if (!Number.isFinite(commissionYER) || commissionYER < 0) {
+        return { success: false, error: 'إعداد عمولة الموزع غير صالح؛ راجع قيمة العمولة ونوعها' };
       }
       totalCommissionYER += commissionYER;
 
@@ -885,10 +907,12 @@ class StorageService {
       });
     }
 
-    const cashPaidYER = Math.min(grossYER, Math.max(0, data.cashPaidYER));
+    if (data.cashPaidYER > grossYER) {
+      return { success: false, error: `المبلغ النقدي لا يمكن أن يتجاوز إجمالي الفاتورة (${formatYER(grossYER)})` };
+    }
+    const cashPaidYER = data.cashPaidYER;
     const creditYER = grossYER - cashPaidYER;
 
-    // فحص سقف الدين
     const fin = this.getDistributorFinancials(dist.id);
     if (dist.debtLimitYER > 0 && fin.currentDebt + creditYER > dist.debtLimitYER) {
       const allowed = Math.max(0, dist.debtLimitYER - fin.currentDebt);
@@ -898,7 +922,6 @@ class StorageService {
       };
     }
 
-    // خصم المخزون
     for (const item of processedItems) {
       this.updateProductStock(item.productId, -item.quantity);
     }
@@ -979,28 +1002,59 @@ class StorageService {
   }): { success: boolean; error?: string; returnEntry?: ReturnEntry } {
     const dist = this.getDistributorById(data.distributorId);
     if (!dist) return { success: false, error: 'الموزع غير موجود' };
-
-    let totalValueYER = 0;
-    const returnItems: ReturnEntry['items'] = [];
-
-    for (const it of data.items) {
-      const prod = this.getProductById(it.productId);
-      if (!prod) continue;
-      const itemTotal = it.quantity * prod.distributorPriceYER;
-      totalValueYER += itemTotal;
-
-      if (it.restock) {
-        this.updateProductStock(prod.id, it.quantity);
+    if (!Array.isArray(data.items) || data.items.length === 0) {
+      return { success: false, error: 'أضف صنفاً واحداً على الأقل إلى المرتجع' };
+    }
+    if (data.settlementType !== 'REDUCE_DEBT' && data.settlementType !== 'CASH_REFUND') {
+      return { success: false, error: 'طريقة تسوية المرتجع غير صالحة' };
+    }
+    if (!data.reason?.trim()) return { success: false, error: 'يرجى إدخال سبب المرتجع أو التلف' };
+    for (const item of data.items) {
+      if (!Number.isFinite(item.quantity) || item.quantity <= 0) {
+        return { success: false, error: 'كمية كل صنف مرتجع يجب أن تكون أكبر من صفر' };
       }
+      if (!this.getProductById(item.productId)) {
+        return { success: false, error: `الصنف المرتجع غير موجود: ${item.productId}` };
+      }
+    }
 
-      returnItems.push({
+    // اعتمد السعر التاريخي FIFO نفسه الذي تعرضه شاشة المرتجعات، ولا تعِد تسعير المرتجع بسعر اليوم.
+    const pricing = calculateHistoricalReturnPricing(
+      this.db,
+      dist.id,
+      data.items.map(item => ({ productId: item.productId, quantity: item.quantity }))
+    );
+    if (!pricing.valid || !pricing.items) {
+      return { success: false, error: pricing.error || 'تعذر التحقق من الكمية والسعر التاريخي للمرتجع' };
+    }
+    const totalValueYER = Number(pricing.totalValueYER || 0);
+    if (!Number.isFinite(totalValueYER) || totalValueYER <= 0) {
+      return { success: false, error: 'قيمة المرتجع يجب أن تكون أكبر من صفر' };
+    }
+    if (data.settlementType === 'REDUCE_DEBT') {
+      const currentDebt = this.getDistributorFinancials(dist.id).currentDebt;
+      if (currentDebt <= 0 || totalValueYER > currentDebt) {
+        return { success: false, error: `قيمة المرتجع لا يمكن أن تتجاوز الدين المستحق (${formatYER(Math.max(0, currentDebt))})` };
+      }
+    }
+
+    const priceByProduct = new Map(pricing.items.map(item => [item.productId, item.unitPriceYER]));
+    const returnItems: ReturnEntry['items'] = data.items.map(item => {
+      const prod = this.getProductById(item.productId)!;
+      const unitPriceYER = priceByProduct.get(item.productId)!;
+      const itemTotal = item.quantity * unitPriceYER;
+      return {
         productId: prod.id,
         productName: prod.name,
-        quantity: it.quantity,
-        unitPriceYER: prod.distributorPriceYER,
+        quantity: item.quantity,
+        unitPriceYER,
         totalYER: itemTotal,
-        restock: it.restock
-      });
+        restock: Boolean(item.restock)
+      };
+    });
+
+    for (const item of returnItems) {
+      if (item.restock) this.updateProductStock(item.productId, item.quantity);
     }
 
     const nextSeq = this.db.returns.length + 1001;
@@ -1014,7 +1068,7 @@ class StorageService {
       items: returnItems,
       totalValueYER,
       settlementType: data.settlementType,
-      reason: data.reason,
+      reason: data.reason.trim(),
       note: data.note
     };
 
