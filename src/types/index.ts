@@ -141,6 +141,8 @@ export interface SupplierPayment {
   date: string;
   createdAt: number;
   amountYER: number;
+  allocations?: CustomerPaymentAllocation[];
+  openingBalanceAppliedYER?: number;
   method: 'CASH' | 'TRANSFER';
   reference?: string;
   note?: string;
@@ -275,6 +277,12 @@ export interface CustomerSale {
   dueDate?: string;
   note?: string;
   weekKey: string;
+}
+
+export interface CustomerPaymentAllocation {
+  saleId: string;
+  saleNumber: string;
+  amountYER: number;
 }
 
 export interface CustomerPayment {
