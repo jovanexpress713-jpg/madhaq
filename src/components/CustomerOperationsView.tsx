@@ -10,7 +10,7 @@ const card = 'rounded-2xl border border-stone-200 dark:border-stone-800 bg-white
 
 export const CustomerOperationsView: React.FC = () => {
   const [, setRevision] = useState(0);
-  const [section, setSection] = useState<'customers'|'sales'|'requests'>('customers');
+  const [section, setSection] = useState<'customers'|'sales'|'requests'|'returns'|'weekly'|'alerts'>('customers');
   const [search, setSearch] = useState('');
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
@@ -40,6 +40,16 @@ export const CustomerOperationsView: React.FC = () => {
   const [requestDate, setRequestDate] = useState(new Date().toISOString().slice(0,10));
   const [requestLines, setRequestLines] = useState<{productId:string;quantity:number}[]>([{productId:'',quantity:1}]);
   const [requestNote, setRequestNote] = useState('');
+  const [returnCustomerId, setReturnCustomerId] = useState('');
+  const [returnDistributorId, setReturnDistributorId] = useState('');
+  const [returnProductId, setReturnProductId] = useState('');
+  const [returnQuantity, setReturnQuantity] = useState('1');
+  const [returnDisposition, setReturnDisposition] = useState<'DAMAGED'|'RETURNED'|'EXCHANGE'>('DAMAGED');
+  const [returnReason, setReturnReason] = useState('تالف عند العميل');
+  const [returnNote, setReturnNote] = useState('');
+  const [weekKey, setWeekKey] = useState(() => {
+    const d=new Date(); d.setHours(12,0,0,0); d.setDate(d.getDate()-((d.getDay()+6)%7)); return d.toISOString().slice(0,10);
+  });
 
   useEffect(() => storage.subscribe(() => setRevision(v => v + 1)), []);
   const db = storage.getDatabase();
@@ -99,6 +109,25 @@ export const CustomerOperationsView: React.FC = () => {
     setMessage('تم إرسال الطلب ' + result.request?.displayNumber + ' إلى قائمة مراجعة المدير.'); setRequestLines([{productId:'',quantity:1}]); setRequestNote('');
   };
   const statusLabel: Record<SupplyRequestStatus,string> = {SUBMITTED:'بانتظار المدير',APPROVED:'معتمد',REJECTED:'مرفوض',IN_PRODUCTION:'قيد الإنتاج',READY:'جاهز للتسليم',FULFILLED:'تم التسليم',CANCELLED:'ملغي'};
+  const submitCustomerReturn = (e: React.FormEvent) => {
+    e.preventDefault(); resetNotice();
+    const customer=storage.getCustomerById(returnCustomerId);
+    const result=storage.createCustomerReturn({
+      customerId:returnCustomerId, distributorId:returnDistributorId || customer?.assignedDistributorId || '',
+      date:new Date().toISOString().slice(0,10),
+      items:[{productId:returnProductId,quantity:Number(returnQuantity),disposition:returnDisposition}],
+      reason:returnReason,note:returnNote
+    });
+    if(!result.success){setError(result.error||'تعذر تسجيل الحركة');return;}
+    setMessage('تم تسجيل الحركة '+result.customerReturn?.displayNumber+' وهي بانتظار اعتماد المدير.');
+    setReturnProductId('');setReturnQuantity('1');setReturnNote('');
+  };
+  const closeWeek = () => {
+    resetNotice();
+    const result=storage.closeCustomerWeek(weekKey);
+    if(!result.success){setError(result.error||'تعذر إقفال الأسبوع');return;}
+    setMessage('تم حفظ إقفال الأسبوع '+weekKey+' بعدد '+(result.close?.customerCount||0)+' بقالة. الرصيد المرحل ظاهر في كشف الأسبوع.');
+  };
   const setStatus = (id:string,status:SupplyRequestStatus) => { resetNotice(); const result=storage.updateSupplyRequestStatus(id,status); if(!result.success)setError(result.error||'تعذر تحديث الطلب'); else setMessage('تم تحديث حالة الطلب.'); };
 
   return <div className="space-y-5" dir="rtl">
@@ -113,7 +142,7 @@ export const CustomerOperationsView: React.FC = () => {
     </header>
     {(message || error) && <div className={`rounded-xl px-4 py-3 text-sm flex gap-2 items-center ${error?'bg-red-50 text-red-700 border border-red-200':'bg-emerald-50 text-emerald-800 border border-emerald-200'}`}>{error?<AlertCircle className="w-4 h-4"/>:<CheckCircle2 className="w-4 h-4"/>}{error||message}</div>}
     <div className="flex gap-2 overflow-x-auto">
-      {([{id:'customers',label:'البقالات والعملاء',icon:Store},{id:'sales',label:'بيع وتحصيل',icon:Wallet},{id:'requests',label:'طلبات الموزعين',icon:ClipboardList}] as const).map(t=><button key={t.id} onClick={()=>{setSection(t.id);resetNotice();}} className={`shrink-0 rounded-xl px-4 py-3 text-sm font-bold flex gap-2 items-center border ${section===t.id?'bg-amber-500 text-stone-950 border-amber-500':'bg-white dark:bg-stone-900 border-stone-200 dark:border-stone-700'}`}><t.icon className="w-4 h-4"/>{t.label}</button>)}
+      {([{id:'customers',label:'البقالات والعملاء',icon:Store},{id:'sales',label:'بيع وتحصيل',icon:Wallet},{id:'requests',label:'طلبات الموزعين',icon:ClipboardList},{id:'returns',label:'التالف والمرتجعات',icon:ReceiptText},{id:'weekly',label:'الإقفال الأسبوعي',icon:CheckCircle2},{id:'alerts',label:'التنبيهات',icon:AlertCircle}] as const).map(t=><button key={t.id} onClick={()=>{setSection(t.id);resetNotice();}} className={`shrink-0 rounded-xl px-4 py-3 text-sm font-bold flex gap-2 items-center border ${section===t.id?'bg-amber-500 text-stone-950 border-amber-500':'bg-white dark:bg-stone-900 border-stone-200 dark:border-stone-700'}`}><t.icon className="w-4 h-4"/>{t.label}</button>)}
     </div>
     {section==='customers' && <div className="grid lg:grid-cols-[0.9fr_1.1fr] gap-4">
       <form onSubmit={submitCustomer} className={card+' space-y-3'}>
@@ -165,6 +194,49 @@ export const CustomerOperationsView: React.FC = () => {
         <h3 className="font-black mb-3">آخر فواتير العملاء والتحصيلات</h3>
         <div className="overflow-x-auto"><table className="w-full text-right text-xs"><thead><tr className="text-stone-500 border-b border-stone-200 dark:border-stone-700"><th className="p-2">التاريخ</th><th className="p-2">رقم الفاتورة</th><th className="p-2">البقالة</th><th className="p-2">الإجمالي</th><th className="p-2">المدفوع</th><th className="p-2">الآجل</th><th className="p-2">رصيد العميل</th></tr></thead><tbody>{db.customerSales.slice(0,40).map(s=><tr key={s.id} className="border-b border-stone-100 dark:border-stone-800"><td className="p-2">{s.date}</td><td className="p-2 font-bold">{s.displayNumber}</td><td className="p-2">{s.customerName}</td><td className="p-2">{formatYER(s.totalYER)}</td><td className="p-2 text-emerald-600">{formatYER(s.paidYER)}</td><td className="p-2 text-amber-600">{formatYER(s.creditYER)}</td><td className="p-2 font-bold">{formatYER(balance(s.customerId))}</td></tr>)}</tbody></table></div>
       </div>
+    </div>}
+
+    {section==='returns' && <div className="grid lg:grid-cols-2 gap-4">
+      <form onSubmit={submitCustomerReturn} className={card+' space-y-3'}>
+        <h3 className="font-black">تسجيل تالف أو مرتجع أو استبدال</h3>
+        <select className={field} value={returnCustomerId} onChange={e=>{setReturnCustomerId(e.target.value);const c=storage.getCustomerById(e.target.value);if(c)setReturnDistributorId(c.assignedDistributorId);}} required><option value="">اختر البقالة</option>{customers.map(c=><option key={c.id} value={c.id}>{c.name}</option>)}</select>
+        <select className={field} value={returnDistributorId} onChange={e=>setReturnDistributorId(e.target.value)} required><option value="">الموزع المسؤول</option>{distributors.map(d=><option key={d.id} value={d.id}>{d.name}</option>)}</select>
+        <select className={field} value={returnProductId} onChange={e=>setReturnProductId(e.target.value)} required><option value="">الصنف</option>{products.map(p=><option key={p.id} value={p.id}>{p.name} — {formatYER(p.distributorPriceYER)}</option>)}</select>
+        <div className="grid grid-cols-2 gap-2"><input className={field} type="number" min="1" value={returnQuantity} onChange={e=>setReturnQuantity(e.target.value)} required/><select className={field} value={returnDisposition} onChange={e=>setReturnDisposition(e.target.value as 'DAMAGED'|'RETURNED'|'EXCHANGE')}><option value="DAMAGED">تالف — لا يعود للمخزون</option><option value="RETURNED">مرتجع صالح للفحص</option><option value="EXCHANGE">استبدال</option></select></div>
+        <input className={field} value={returnReason} onChange={e=>setReturnReason(e.target.value)} placeholder="سبب الحركة" required/>
+        <textarea className={field} value={returnNote} onChange={e=>setReturnNote(e.target.value)} placeholder="ملاحظات / رقم الفاتورة الأصلية" rows={2}/>
+        <button className="w-full rounded-xl bg-amber-500 text-stone-950 font-black py-3">إرسال للمدير للمراجعة</button>
+        <p className="text-xs text-stone-500">لا يُخفض الدين ولا يُعاد المنتج الصالح للمخزون قبل اعتماد المدير. المنتج التالف لا يعود للمخزون الصالح.</p>
+      </form>
+      <div className={card+' space-y-3'}><h3 className="font-black">حركات بانتظار المراجعة</h3>
+        {storage.getCustomerReturns().length===0?<p className="text-sm text-stone-500">لا توجد حركات مرتجع.</p>:storage.getCustomerReturns().map(r=><div key={r.id} className="rounded-xl border border-stone-200 dark:border-stone-700 p-3 space-y-2">
+          <div className="flex justify-between gap-2"><strong>{r.displayNumber} · {r.customerName}</strong><span className="text-xs rounded-lg px-2 py-1 bg-amber-100 text-amber-900">{r.status==='PENDING'?'بانتظار الاعتماد':r.status==='APPROVED'?'معتمد':'مرفوض'}</span></div>
+          <p className="text-xs text-stone-500">{r.date} · {r.reason} · {formatYER(r.totalYER)}</p>
+          <div className="text-xs">{r.items.map(i=>i.productName+' × '+i.quantity+' ('+(i.disposition==='DAMAGED'?'تالف':i.disposition==='RETURNED'?'مرتجع':'استبدال')+')').join('، ')}</div>
+          {r.status==='PENDING'&&<div className="flex gap-2"><button onClick={()=>{const x=storage.reviewCustomerReturn(r.id,'APPROVED');resetNotice();if(x.success)setMessage('تم اعتماد الحركة وتحديث الرصيد.');else setError(x.error||'تعذر الاعتماد');}} className="rounded-lg bg-emerald-600 text-white px-3 py-2 text-xs font-bold">اعتماد</button><button onClick={()=>{const x=storage.reviewCustomerReturn(r.id,'REJECTED');resetNotice();if(x.success)setMessage('تم رفض الحركة.');else setError(x.error||'تعذر الرفض');}} className="rounded-lg bg-red-100 text-red-700 px-3 py-2 text-xs font-bold">رفض</button></div>}
+        </div>)}
+      </div>
+    </div>}
+    {section==='weekly' && <div className={card+' space-y-4'}>
+      <h3 className="font-black">إقفال أسبوع العملاء وترحيل الأرصدة</h3>
+      <p className="text-sm text-stone-500">يحفظ النظام لقطة أسبوعية لكل بقالة: رصيد أول الأسبوع + الآجل - التحصيلات - المرتجعات المعتمدة = رصيد آخر الأسبوع. الإقفال لا يمحو أو يكرر الحركات.</p>
+      <div className="flex flex-wrap items-end gap-3"><label className="space-y-1 text-sm"><span>بداية الأسبوع (الاثنين)</span><input className={field} type="date" value={weekKey} onChange={e=>setWeekKey(e.target.value)} /></label><button onClick={closeWeek} className="rounded-xl bg-amber-500 px-5 py-3 font-black text-stone-950">إقفال الأسبوع</button></div>
+      <div className="overflow-x-auto"><table className="w-full text-right text-xs"><thead><tr className="border-b border-stone-200 dark:border-stone-700 text-stone-500"><th className="p-2">الأسبوع</th><th className="p-2">عدد البقالات</th><th className="p-2">إجمالي البيع</th><th className="p-2">التحصيلات</th><th className="p-2">المرتجعات</th><th className="p-2">إجمالي الرصيد المرحل</th></tr></thead><tbody>{storage.getCustomerWeeklyCloses().map(w=><tr key={w.id} className="border-b border-stone-100 dark:border-stone-800"><td className="p-2">{w.weekKey}</td><td className="p-2">{w.customerCount}</td><td className="p-2">{formatYER(w.totalSalesYER)}</td><td className="p-2">{formatYER(w.totalCollectionsYER)}</td><td className="p-2">{formatYER(w.totalApprovedReturnsYER)}</td><td className="p-2 font-bold">{formatYER(w.customerBalances.reduce((n,x)=>n+x.closingYER,0))}</td></tr>)}</tbody></table></div>
+      <p className="text-xs text-stone-500">الأرصدة المرحلة محفوظة في كشف الإقفال، وتبقى الحركات الأصلية كما هي. لا يمكن إقفال نفس الأسبوع مرتين.</p>
+    </div>}
+    {section==='alerts' && <div className={card+' space-y-3'}>
+      <h3 className="font-black">مركز التنبيهات المبنية على البيانات</h3>
+      {[
+        ...customers.filter(c=>balance(c.id)>0).map(c=>({id:'debt-'+c.id,kind:'دين عميل',title:c.name,detail:'رصيد مستحق: '+formatYER(balance(c.id)),level:'warning'})),
+        ...db.supplyRequests.filter(r=>['SUBMITTED','APPROVED','IN_PRODUCTION','READY'].includes(r.status)).map(r=>({id:'request-'+r.id,kind:'طلب توريد',title:r.displayNumber+' · '+(r.customerName||r.distributorName),detail:r.items.map(i=>i.productName+' × '+i.quantity).join('، ')+' — '+statusLabel[r.status],level:'info'})),
+        ...storage.getCustomerReturns().filter(r=>r.status==='PENDING').map(r=>({id:'return-'+r.id,kind:'مراجعة مطلوبة',title:r.displayNumber+' · '+r.customerName,detail:r.reason+' — '+formatYER(r.totalYER),level:'warning'})),
+        ...db.rawMaterials.filter(r=>r.active&&r.stockQty<=r.minimumQty).map(r=>({id:'raw-'+r.id,kind:'مخزون منخفض',title:r.name,detail:'المتاح '+r.stockQty+' '+r.unit,level:'warning'}))
+      ].length===0?<p className="text-sm text-stone-500 py-6">لا توجد تنبيهات مفتوحة بحسب البيانات الحالية.</p>:[
+        ...customers.filter(c=>balance(c.id)>0).map(c=>({id:'debt-'+c.id,kind:'دين عميل',title:c.name,detail:'رصيد مستحق: '+formatYER(balance(c.id)),level:'warning'})),
+        ...db.supplyRequests.filter(r=>['SUBMITTED','APPROVED','IN_PRODUCTION','READY'].includes(r.status)).map(r=>({id:'request-'+r.id,kind:'طلب توريد',title:r.displayNumber+' · '+(r.customerName||r.distributorName),detail:r.items.map(i=>i.productName+' × '+i.quantity).join('، ')+' — '+statusLabel[r.status],level:'info'})),
+        ...storage.getCustomerReturns().filter(r=>r.status==='PENDING').map(r=>({id:'return-'+r.id,kind:'مراجعة مطلوبة',title:r.displayNumber+' · '+r.customerName,detail:r.reason+' — '+formatYER(r.totalYER),level:'warning'})),
+        ...db.rawMaterials.filter(r=>r.active&&r.stockQty<=r.minimumQty).map(r=>({id:'raw-'+r.id,kind:'مخزون منخفض',title:r.name,detail:'المتاح '+r.stockQty+' '+r.unit,level:'warning'}))
+      ].map(a=><div key={a.id} className="rounded-xl border border-stone-200 dark:border-stone-700 p-3 flex gap-3"><AlertCircle className={a.level==='warning'?'text-amber-600':'text-blue-600'}/><div><p className="text-[11px] text-stone-500">{a.kind}</p><strong className="text-sm">{a.title}</strong><p className="text-xs text-stone-500 mt-1">{a.detail}</p></div></div>)}
     </div>}
     {section==='requests' && <div className="grid lg:grid-cols-[0.8fr_1.2fr] gap-4">
       <form onSubmit={submitRequest} className={card+' space-y-3'}>
