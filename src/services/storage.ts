@@ -28,6 +28,12 @@ import {
 const STORAGE_KEY = 'madhaq_factory_db_v1';
 
 // عملة الريال اليمني وتنسيق الأرقام
+function customerReturnCreditYER(entry: CustomerReturn): number {
+  if (Number.isFinite(entry.creditYER)) return Number(entry.creditYER);
+  // Backward-compatible calculation for records saved before exchange credits were separated.
+  return entry.items.reduce((sum, item) => sum + (item.disposition === 'EXCHANGE' ? 0 : item.totalYER), 0);
+}
+
 export function formatYER(amount: number): string {
   if (isNaN(amount)) return '0 ر.ي';
   return new Intl.NumberFormat('ar-YE', {
@@ -1076,7 +1082,7 @@ class StorageService {
     if (!customer) return 0;
     const sales = this.db.customerSales.filter(s => s.customerId === customerId).reduce((sum, s) => sum + s.creditYER, 0);
     const payments = this.db.customerPayments.filter(p => p.customerId === customerId).reduce((sum, p) => sum + p.amountYER, 0);
-    const approvedReturns = (this.db.customerReturns || []).filter(r => r.customerId === customerId && r.status === 'APPROVED').reduce((sum, r) => sum + (r.creditYER ?? r.totalYER), 0);
+    const approvedReturns = (this.db.customerReturns || []).filter(r => r.customerId === customerId && r.status === 'APPROVED').reduce((sum, r) => sum + customerReturnCreditYER(r), 0);
     return (customer.openingDebtYER || 0) + sales - payments - approvedReturns;
   }
 
@@ -1399,7 +1405,7 @@ class StorageService {
       const returns = this.db.customerReturns.filter(x=>x.customerId===c.id && x.status==='APPROVED' && x.date>=weekKey && x.date<=endKey);
       const priorSales = this.db.customerSales.filter(x=>x.customerId===c.id && x.date<weekKey).reduce((n,x)=>n+x.creditYER,0);
       const priorPayments = this.db.customerPayments.filter(x=>x.customerId===c.id && x.date<weekKey).reduce((n,x)=>n+x.amountYER,0);
-      const priorReturns = this.db.customerReturns.filter(x=>x.customerId===c.id && x.status==='APPROVED' && x.date<weekKey).reduce((n,x)=>n+(x.creditYER ?? x.totalYER),0);
+      const priorReturns = this.db.customerReturns.filter(x=>x.customerId===c.id && x.status==='APPROVED' && x.date<weekKey).reduce((n,x)=>n+customerReturnCreditYER(x),0);
       const openingYER=(c.openingDebtYER||0)+priorSales-priorPayments-priorReturns;
       const salesCreditYER=sales.reduce((n,x)=>n+x.creditYER,0);
       const paymentsYER=payments.reduce((n,x)=>n+x.amountYER,0);
