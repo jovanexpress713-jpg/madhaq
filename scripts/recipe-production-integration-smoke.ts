@@ -13,7 +13,12 @@ Object.defineProperty(globalThis, 'localStorage', {
 });
 
 const database = {
-  version: 1,
+  version: 2,
+  areas: [],
+  customers: [],
+  customerSales: [],
+  customerPayments: [],
+  supplyRequests: [],
   distributors: [],
   products: [{ id: 'finished-1', name: 'بسكويت تجريبي', category: 'حلويات', unit: 'قطعة', factoryPriceYER: 0, distributorPriceYER: 50, stockQty: 5, minimumQty: 1, active: true, createdAt: 1 }],
   rawMaterials: [
