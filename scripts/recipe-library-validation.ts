@@ -36,8 +36,9 @@ for (const recipe of RECIPE_LIBRARY) {
   const meta = explicitMeta ?? DEFAULT_RECIPE_OPERATION_META;
   if (!meta.imageUrl || !/^https:\/\//.test(meta.imageUrl)) failures.push(`صورة مرجعية غير صالحة: ${recipe.name}`);
   if (!meta.imageAlt?.trim()) failures.push(`وصف الصورة فارغ: ${recipe.name}`);
-  const nameTokens = normalizeArabic(recipe.name).split(' ').filter(token => token.length > 2 && !imageLabelStopWords.has(token));
-  const imageTokens = new Set(normalizeArabic(meta.imageAlt).split(' '));
+  const normalizeToken = (token: string) => token.replace(/^(?:وال|بال|كال|لل|ال|ب|و)/, '');
+  const nameTokens = normalizeArabic(recipe.name).split(' ').map(normalizeToken).filter(token => token.length > 2 && !imageLabelStopWords.has(token));
+  const imageTokens = new Set(normalizeArabic(meta.imageAlt).split(' ').map(normalizeToken));
   if (!nameTokens.some(token => imageTokens.has(token))) failures.push(`وصف الصورة لا يطابق اسم الوصفة: ${recipe.name} — ${meta.imageAlt}`);
   if (meta.imageSourceUrl && !meta.imageSourceUrl.startsWith('https://')) failures.push(`رابط مصدر الصورة غير صالح: ${recipe.name}`);
   if (photoUrls.has(meta.imageUrl)) failures.push(`الصورة مستخدمة لوصفة أخرى وليست فريدة: ${recipe.name}`);
