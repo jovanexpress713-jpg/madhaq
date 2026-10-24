@@ -1631,7 +1631,15 @@ class StorageService {
       if (!parsed || !Array.isArray(parsed.distributors) || !Array.isArray(parsed.products)) {
         return { success: false, error: 'الملف غير صالح أو لا يحتوي على بنية بيانات نظام مذاق' };
       }
-      this.db = parsed;
+      this.db = {
+        ...parsed,
+        areas: Array.isArray(parsed.areas) ? parsed.areas : [],
+        customers: Array.isArray(parsed.customers) ? parsed.customers : [],
+        customerSales: Array.isArray(parsed.customerSales) ? parsed.customerSales : [],
+        customerPayments: Array.isArray(parsed.customerPayments) ? parsed.customerPayments : [],
+        supplyRequests: Array.isArray(parsed.supplyRequests) ? parsed.supplyRequests : [],
+        version: 2
+      };
       this.commit();
       return { success: true };
     } catch (e: any) {
