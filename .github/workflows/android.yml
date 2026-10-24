@@ -51,7 +51,7 @@ jobs:
         run: bun install --frozen-lockfile
 
       - name: Install Capacitor Android tooling
-        run: bunx --bun npm install --no-save @capacitor/core@7 @capacitor/cli@7 @capacitor/android@7
+        run: bunx --bun npm install --no-save --legacy-peer-deps @capacitor/core@7 @capacitor/cli@7 @capacitor/android@7
 
       - name: Typecheck
         run: bun run lint
