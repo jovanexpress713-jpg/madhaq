@@ -85,3 +85,24 @@
     display: block !important;
   }
 }
+
+
+/* Calm branded entry animation for MADHAQ */
+.madhaq-splash { background: radial-gradient(ellipse at 50% 42%, #292117 0%, #171411 44%, #0c0b0a 100%); animation: madhaq-splash-exit 420ms ease 1.43s forwards; }
+.madhaq-splash-glow { position:absolute; width:19rem; height:19rem; border-radius:9999px; filter:blur(70px); opacity:.22; pointer-events:none; }
+.madhaq-splash-glow-one { background:#d97706; top:10%; right:-5rem; animation:madhaq-glow-drift 4s ease-in-out infinite alternate; }
+.madhaq-splash-glow-two { background:#f59e0b; bottom:3%; left:-6rem; animation:madhaq-glow-drift 5s ease-in-out infinite alternate-reverse; }
+.madhaq-splash-logo-wrap { width:112px; height:112px; padding:9px; border:1px solid rgb(245 158 11 / .42); border-radius:30px; background:rgb(0 0 0 / .34); box-shadow:0 0 55px rgb(217 119 6 / .18), inset 0 0 25px rgb(245 158 11 / .07); animation:madhaq-logo-enter 700ms cubic-bezier(.2,.8,.2,1) both; }
+.madhaq-splash-logo { width:100%; height:100%; object-fit:contain; animation:madhaq-logo-breathe 2.2s ease-in-out infinite; }
+.madhaq-splash-title { margin-top:24px; color:#fbbf24; font-weight:900; font-size:clamp(2rem,8vw,2.8rem); letter-spacing:-.04em; animation:madhaq-text-enter 600ms 120ms ease both; }
+.madhaq-splash-title span { display:block; margin-top:1px; color:rgb(253 230 138 / .75); font:600 .8rem ui-monospace,SFMono-Regular,Menlo,monospace; letter-spacing:.28em; }
+.madhaq-splash-subtitle { margin-top:13px; color:rgb(255 255 255 / .78); font-size:13px; animation:madhaq-text-enter 600ms 220ms ease both; }
+.madhaq-splash-track { width:132px; height:3px; margin-top:28px; overflow:hidden; border-radius:9999px; background:rgb(255 255 255 / .12); }
+.madhaq-splash-track span { display:block; width:45%; height:100%; border-radius:inherit; background:linear-gradient(90deg,#b45309,#fbbf24); animation:madhaq-progress 1.35s ease-in-out infinite; }
+@keyframes madhaq-splash-exit { to { opacity:0; visibility:hidden; pointer-events:none; } }
+@keyframes madhaq-logo-enter { from { opacity:0; transform:translateY(16px) scale(.88); } to { opacity:1; transform:translateY(0) scale(1); } }
+@keyframes madhaq-logo-breathe { 0%,100% { transform:scale(1); } 50% { transform:scale(1.035); } }
+@keyframes madhaq-text-enter { from { opacity:0; transform:translateY(9px); } to { opacity:1; transform:translateY(0); } }
+@keyframes madhaq-progress { from { transform:translateX(-120%); } to { transform:translateX(340%); } }
+@keyframes madhaq-glow-drift { from { transform:translate3d(0,-10px,0) scale(.9); } to { transform:translate3d(18px,16px,0) scale(1.12); } }
+@media (prefers-reduced-motion:reduce) { .madhaq-splash,.madhaq-splash * { animation-duration:1ms !important; animation-iteration-count:1 !important; } }

@@ -1,9 +1,10 @@
-import { RECIPE_LIBRARY } from '../src/data/recipeLibrary';
+import { RECIPE_LIBRARY, RECIPE_PREPARATION_STEPS } from '../src/data/recipeLibrary';
 import { RECIPE_OPERATION_META, DEFAULT_RECIPE_OPERATION_META } from '../src/data/recipeOperations';
 
 const failures: string[] = [];
 const warnings: string[] = [];
 const ids = new Set<string>();
+const photoUrls = new Set<string>();
 
 for (const recipe of RECIPE_LIBRARY) {
   if (!recipe.id?.trim()) failures.push('وصفة بلا معرّف');
@@ -22,6 +23,9 @@ for (const recipe of RECIPE_LIBRARY) {
   const meta = RECIPE_OPERATION_META[recipe.id] ?? DEFAULT_RECIPE_OPERATION_META;
   if (!meta.imageUrl || !/^https:\/\//.test(meta.imageUrl)) failures.push(`صورة مرجعية غير صالحة: ${recipe.name}`);
   if (!meta.imageAlt?.trim()) failures.push(`وصف الصورة فارغ: ${recipe.name}`);
+  if (photoUrls.has(meta.imageUrl)) failures.push(`الصورة مستخدمة لوصفة أخرى وليست فريدة: ${recipe.name}`);
+  photoUrls.add(meta.imageUrl);
+  if (!Array.isArray(RECIPE_PREPARATION_STEPS[recipe.id]) || RECIPE_PREPARATION_STEPS[recipe.id].length < 4) failures.push(`طريقة التحضير غير مكتملة: ${recipe.name}`);
   if (!Number.isFinite(meta.shelfLifeDays) || meta.shelfLifeDays <= 0) failures.push(`مرجع صلاحية غير صالح: ${recipe.name}`);
   const inputTotal = recipe.ingredients.reduce((sum, item) => sum + item.grams, 0);
   if (Math.abs(inputTotal - recipe.baseYieldGrams) / recipe.baseYieldGrams > 0.15) {

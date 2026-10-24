@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import { storage, formatYER } from './services/storage';
-import { PWAInstallBanner } from './components/PWAInstallBanner';
 import { Navbar } from './components/Navbar';
 import { NavigationTabs } from './components/NavigationTabs';
 import { BottomNav } from './components/BottomNav';
@@ -32,6 +31,12 @@ import {
 export default function App() {
   const [, setTick] = useState(0);
   const [activeTab, setActiveTab] = useState<string>('dashboard');
+  const [showWelcome, setShowWelcome] = useState(true);
+
+  useEffect(() => {
+    const welcomeTimer = window.setTimeout(() => setShowWelcome(false), 1850);
+    return () => window.clearTimeout(welcomeTimer);
+  }, []);
 
   // Modals state
   const [isDistributionOpen, setIsDistributionOpen] = useState(false);
@@ -100,8 +105,19 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-stone-100 dark:bg-stone-950 text-stone-900 dark:text-stone-100 flex flex-col font-sans pb-20 md:pb-6 selection:bg-amber-500/30">
-      {/* PWA Mobile Installation Banner */}
-      <PWAInstallBanner />
+      {showWelcome && (
+        <div className="madhaq-splash fixed inset-0 z-[100] flex items-center justify-center overflow-hidden" role="status" aria-live="polite">
+          <div className="madhaq-splash-glow madhaq-splash-glow-one" />
+          <div className="madhaq-splash-glow madhaq-splash-glow-two" />
+          <div className="relative z-10 flex flex-col items-center text-center px-6">
+            <div className="madhaq-splash-logo-wrap"><img src="/madhaq_logo.png" alt="شعار مذاق" className="madhaq-splash-logo" /></div>
+            <div className="madhaq-splash-title">مذاق <span>MADHAQ</span></div>
+            <p className="madhaq-splash-subtitle">كل تفاصيل المعمل… في مكان واحد</p>
+            <div className="madhaq-splash-track"><span /></div>
+            <p className="mt-3 text-[10px] tracking-wide text-amber-100/55">نظام إدارة الإنتاج والمخزون والتوزيع</p>
+          </div>
+        </div>
+      )}
 
       {/* Main Top Header */}
       <Navbar
