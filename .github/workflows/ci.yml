@@ -12,7 +12,7 @@ permissions:
 
 jobs:
   verify:
-    name: Typecheck, production validation and build
+    name: Typecheck, business validation and production build
     runs-on: ubuntu-latest
 
     steps:
@@ -32,6 +32,9 @@ jobs:
 
       - name: Production business-rule validation
         run: bun run verify:production
+
+      - name: Purchase business-rule validation
+        run: bun run verify:purchases
 
       - name: Production build
         run: bun run build
