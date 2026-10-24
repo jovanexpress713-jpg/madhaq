@@ -28,8 +28,11 @@ jobs:
           distribution: temurin
           java-version: '21'
 
-      - name: Setup Android SDK
+      - name: Prepare Android SDK
         uses: android-actions/setup-android@v3
+        with:
+          packages: 'platform-tools;platforms;android-35;build-tools;35.0.0'
+          accept-android-sdk-licenses: true
 
       - name: Install web dependencies
         run: bun install --frozen-lockfile
