@@ -51,7 +51,7 @@ export default defineConfig(() => {
           maximumFileSizeToCacheInBytes: 5 * 1024 * 1024,
           runtimeCaching: [
             {
-              urlPattern: /^https:\/\/images\.unsplash\.com\/.*/i,
+              urlPattern: ({ request }) => request.destination === 'image' && request.url.startsWith('https://'),
               handler: 'CacheFirst',
               options: {
                 cacheName: 'madhaq-food-photos',
