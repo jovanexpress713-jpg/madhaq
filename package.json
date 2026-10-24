@@ -15,7 +15,6 @@
     "verify:supplier-payments": "tsx scripts/supplier-payment-validation-smoke.ts"
   },
   "dependencies": {
-    "@capacitor/cli": "^7.0.0",
     "@google/genai": "^2.4.0",
     "@tailwindcss/vite": "^4.3.3",
     "@vitejs/plugin-react": "^6.1.1",
