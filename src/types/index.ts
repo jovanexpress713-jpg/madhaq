@@ -318,6 +318,46 @@ export interface SupplyRequest {
   reviewedBy?: string;
 }
 
+
+export type CustomerReturnStatus = 'PENDING' | 'APPROVED' | 'REJECTED';
+export interface CustomerReturnItem {
+  productId: string;
+  productName: string;
+  unit: string;
+  quantity: number;
+  unitPriceYER: number;
+  totalYER: number;
+  disposition: 'DAMAGED' | 'RETURNED' | 'EXCHANGE';
+}
+export interface CustomerReturn {
+  id: string;
+  displayNumber: string;
+  customerId: string;
+  customerName: string;
+  distributorId: string;
+  distributorName: string;
+  saleId?: string;
+  date: string;
+  createdAt: number;
+  items: CustomerReturnItem[];
+  totalYER: number;
+  reason: string;
+  status: CustomerReturnStatus;
+  note?: string;
+  reviewedAt?: number;
+  reviewedBy?: string;
+}
+export interface CustomerWeeklyClose {
+  id: string;
+  weekKey: string;
+  closedAt: number;
+  closedBy: string;
+  customerCount: number;
+  totalSalesYER: number;
+  totalCollectionsYER: number;
+  totalApprovedReturnsYER: number;
+  customerBalances: { customerId: string; customerName: string; openingYER: number; salesCreditYER: number; paymentsYER: number; returnsYER: number; closingYER: number }[];
+}
 export interface DatabaseSchema {
   distributors: Distributor[];
   products: Product[];
@@ -336,5 +376,7 @@ export interface DatabaseSchema {
   customerSales: CustomerSale[];
   customerPayments: CustomerPayment[];
   supplyRequests: SupplyRequest[];
+  customerReturns: CustomerReturn[];
+  customerWeeklyCloses: CustomerWeeklyClose[];
   version: number;
 }
