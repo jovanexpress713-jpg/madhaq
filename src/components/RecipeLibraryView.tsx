@@ -12,7 +12,10 @@ const DB_KEY = 'madhaq_factory_db_v1';
 const getCostPerGram = (material: any): number | null => {
   const cost = Number(material?.averageCostPerUnitYER ?? 0);
   if (!Number.isFinite(cost) || cost <= 0) return null;
-  const unit = normalize(String(material?.unit ?? ''));
+  const unit = normalize(String(material?.unit ?? '')).replace(/\\s/g, '');
+  if (unit.includes('كيس') && (unit.includes('50كجم') || unit.includes('50kg'))) return cost / 50000;
+  if (unit.includes('كيس') && (unit.includes('25كجم') || unit.includes('25kg'))) return cost / 25000;
+  if (unit.includes('سطل') && (unit.includes('5كجم') || unit.includes('5kg'))) return cost / 5000;
   if (unit.includes('كجم') || unit.includes('كيلو') || unit === 'kg') return cost / 1000;
   if (unit.includes('جرام') || unit.includes('غرام') || unit === 'g' || unit === 'gm') return cost;
   if (unit.includes('لتر') || unit === 'l' || unit.includes('liter')) return cost / 1000;
@@ -48,7 +51,7 @@ export const RecipeLibraryView: React.FC = () => {
   const scale = selected ? Math.max(0, batchGrams) / selected.baseYieldGrams : 0;
   const costing = selected ? selected.ingredients.map((ingredient) => {
     const target = normalize(ingredient.name);
-    const material = materials.find((m: any) => normalize(String(m.name)) === target) ?? materials.find((m: any) => normalize(String(m.name)).includes(target) || target.includes(normalize(String(m.name))));
+    const material = materials.find((m: any) => normalize(String(m.name)) === target);
     const unitCost = material ? getCostPerGram(material) : null;
     const grams = ingredient.grams * scale;
     return { ...ingredient, grams, material, cost: unitCost === null ? null : grams * unitCost };
