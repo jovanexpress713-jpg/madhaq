@@ -1,9 +1,10 @@
 import React from 'react';
-import { UtensilsCrossed, Package, Boxes, Building2, Wallet, Database, X, RotateCcw, ChefHat, BookOpen, Factory } from 'lucide-react';
+import { UtensilsCrossed, Package, Boxes, Building2, Wallet, Database, X, RotateCcw, ChefHat, BookOpen, Factory, Store } from 'lucide-react';
 interface MobileMoreModalProps { isOpen:boolean; onClose:()=>void; onSelectTab:(tab:string)=>void; onOpenBackup:()=>void; onOpenReturns:()=>void; }
 export const MobileMoreModal:React.FC<MobileMoreModalProps>=({isOpen,onClose,onSelectTab,onOpenBackup,onOpenReturns})=>{
  if(!isOpen)return null;
  const items=[
+  {id:'customers',title:'البقالات وديون العملاء',desc:'سجل البقالات حسب المنطقة، المبيعات الآجلة والتحصيلات وطلبات التوريد',icon:Store,color:'text-amber-400 bg-amber-500/10 border-amber-500/30'},
   {id:'production',title:'الوصفات والإنتاج',desc:'إعداد الوصفات وتسجيل دفعات الإنتاج اليومية',icon:UtensilsCrossed,color:'text-amber-400 bg-amber-500/10 border-amber-500/30'},
   {id:'recipes',title:'حاسبة الوصفات والمقاسات',desc:'تكلفة المواد، المقاسات، وزن التعبئة والربح',icon:ChefHat,color:'text-orange-400 bg-orange-500/10 border-orange-500/30'},
   {id:'recipeLibrary',title:'مكتبة الوصفات الاقتصادية',desc:'حلويات ومعجنات ومخبوزات وكيك ومشروبات',icon:BookOpen,color:'text-yellow-400 bg-yellow-500/10 border-yellow-500/30'},
