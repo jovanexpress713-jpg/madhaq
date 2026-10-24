@@ -271,11 +271,13 @@ export const CustomerOperationsView: React.FC = () => {
       <h3 className="font-black">مركز التنبيهات المبنية على البيانات</h3>
       {[
         ...customers.filter(c=>balance(c.id)>0).map(c=>({id:'debt-'+c.id,kind:'دين عميل',title:c.name,detail:'رصيد مستحق: '+formatYER(balance(c.id)),level:'warning'})),
+        ...db.customerSales.filter(s=>s.dueDate && s.dueDate < new Date().toISOString().slice(0,10) && storage.getCustomerSaleBalance(s.id)>0).map(s=>({id:'overdue-'+s.id,kind:'دين متأخر',title:s.customerName+' · '+s.displayNumber,detail:'استحق في '+s.dueDate+' — المتبقي '+formatYER(storage.getCustomerSaleBalance(s.id)),level:'warning'})),
         ...db.supplyRequests.filter(r=>['SUBMITTED','APPROVED','IN_PRODUCTION','READY'].includes(r.status)).map(r=>({id:'request-'+r.id,kind:'طلب توريد',title:r.displayNumber+' · '+(r.customerName||r.distributorName),detail:r.items.map(i=>i.productName+' × '+i.quantity).join('، ')+' — '+statusLabel[r.status],level:'info'})),
         ...storage.getCustomerReturns().filter(r=>r.status==='PENDING').map(r=>({id:'return-'+r.id,kind:'مراجعة مطلوبة',title:r.displayNumber+' · '+r.customerName,detail:r.reason+' — '+formatYER(r.totalYER),level:'warning'})),
         ...db.rawMaterials.filter(r=>r.active&&r.stockQty<=r.minimumQty).map(r=>({id:'raw-'+r.id,kind:'مخزون منخفض',title:r.name,detail:'المتاح '+r.stockQty+' '+r.unit,level:'warning'}))
       ].length===0?<p className="text-sm text-stone-500 py-6">لا توجد تنبيهات مفتوحة بحسب البيانات الحالية.</p>:[
         ...customers.filter(c=>balance(c.id)>0).map(c=>({id:'debt-'+c.id,kind:'دين عميل',title:c.name,detail:'رصيد مستحق: '+formatYER(balance(c.id)),level:'warning'})),
+        ...db.customerSales.filter(s=>s.dueDate && s.dueDate < new Date().toISOString().slice(0,10) && storage.getCustomerSaleBalance(s.id)>0).map(s=>({id:'overdue-'+s.id,kind:'دين متأخر',title:s.customerName+' · '+s.displayNumber,detail:'استحق في '+s.dueDate+' — المتبقي '+formatYER(storage.getCustomerSaleBalance(s.id)),level:'warning'})),
         ...db.supplyRequests.filter(r=>['SUBMITTED','APPROVED','IN_PRODUCTION','READY'].includes(r.status)).map(r=>({id:'request-'+r.id,kind:'طلب توريد',title:r.displayNumber+' · '+(r.customerName||r.distributorName),detail:r.items.map(i=>i.productName+' × '+i.quantity).join('، ')+' — '+statusLabel[r.status],level:'info'})),
         ...storage.getCustomerReturns().filter(r=>r.status==='PENDING').map(r=>({id:'return-'+r.id,kind:'مراجعة مطلوبة',title:r.displayNumber+' · '+r.customerName,detail:r.reason+' — '+formatYER(r.totalYER),level:'warning'})),
         ...db.rawMaterials.filter(r=>r.active&&r.stockQty<=r.minimumQty).map(r=>({id:'raw-'+r.id,kind:'مخزون منخفض',title:r.name,detail:'المتاح '+r.stockQty+' '+r.unit,level:'warning'}))
