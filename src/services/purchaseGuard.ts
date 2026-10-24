@@ -1,35 +1,30 @@
 import { storage } from './storage';
 import { validatePurchase } from './purchaseValidation';
+import { withTransactionRollback } from './transactionGuard';
 
+/** يمنع شراء غير صالح ويحمي مخزون المواد الخام من الحالة الجزئية عند الاستثناء. */
 let installed = false;
 
-/** يمنع أي مسار في التطبيق من تسجيل شراء غير صالح قبل تعديل مخزون المواد الخام. */
 export function installPurchaseGuard(): void {
   if (installed) return;
 
-  const service = storage as typeof storage & {
-    __madhaqPurchaseGuardInstalled?: boolean;
-  };
-
+  const service = storage as typeof storage & { __madhaqPurchaseGuardInstalled?: boolean };
   if (service.__madhaqPurchaseGuardInstalled) {
     installed = true;
     return;
   }
 
   const original = storage.createPurchase.bind(storage);
-
   storage.createPurchase = ((data) => {
     const validation = validatePurchase(storage.getDatabase(), {
       supplierId: data.supplierId,
       items: data.items,
       cashPaidYER: data.cashPaidYER
     });
-
     if (!validation.valid) {
       return { success: false, error: validation.error || 'فاتورة الشراء غير صالحة.' };
     }
-
-    return original(data);
+    return withTransactionRollback(() => original(data));
   }) as typeof storage.createPurchase;
 
   service.__madhaqPurchaseGuardInstalled = true;
