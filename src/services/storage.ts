@@ -1128,6 +1128,57 @@ class StorageService {
     return { success: true, sale };
   }
 
+  public getCustomerInvoiceBalances(customerId: string): {
+    saleId: string; saleNumber: string; saleDate: string; originalCreditYER: number;
+    paymentsYER: number; returnsYER: number; balanceYER: number;
+  }[] {
+    const sales = this.db.customerSales.filter(s => s.customerId === customerId)
+      .slice().sort((a,b) => a.date.localeCompare(b.date) || a.createdAt-b.createdAt);
+    const balances = sales.map(sale => {
+      const paymentsYER = this.db.customerPayments.reduce((sum,p) =>
+        sum + (p.allocations || []).filter(a => a.saleId === sale.id).reduce((n,a)=>n+a.amountYER,0), 0);
+      const returnsYER = this.db.customerReturns.filter(r => r.customerId === customerId && r.status === 'APPROVED' && r.saleId === sale.id)
+        .reduce((sum,r)=>sum+(r.creditYER ?? r.totalYER),0);
+      return {
+        saleId: sale.id, saleNumber: sale.displayNumber, saleDate: sale.date,
+        originalCreditYER: sale.creditYER, paymentsYER,
+        returnsYER, balanceYER: Math.max(0, sale.creditYER-paymentsYER-returnsYER)
+      };
+    });
+
+    // Legacy payments created before invoice allocation existed are applied to opening debt first,
+    // then FIFO to invoices, preserving compatibility with older saved data.
+    const legacyPayments = this.db.customerPayments.filter(p => p.customerId === customerId &&
+      !p.allocations && p.openingBalanceAppliedYER === undefined).reduce((n,p)=>n+p.amountYER,0);
+    const openingDebt = this.getCustomerById(customerId)?.openingDebtYER || 0;
+    let legacyInvoicePayments = Math.max(0, legacyPayments-openingDebt);
+    for (const row of balances) {
+      if (legacyInvoicePayments <= 0) break;
+      const applied = Math.min(row.balanceYER, legacyInvoicePayments);
+      row.balanceYER -= applied;
+      row.paymentsYER += applied;
+      legacyInvoicePayments -= applied;
+    }
+
+    // Unlinked legacy returns are applied FIFO to the oldest remaining invoices.
+    let unlinkedReturnCredit = this.db.customerReturns.filter(r => r.customerId === customerId &&
+      r.status === 'APPROVED' && !r.saleId).reduce((n,r)=>n+(r.creditYER ?? r.totalYER),0);
+    for (const row of balances) {
+      if (unlinkedReturnCredit <= 0) break;
+      const applied = Math.min(row.balanceYER, unlinkedReturnCredit);
+      row.balanceYER -= applied;
+      row.returnsYER += applied;
+      unlinkedReturnCredit -= applied;
+    }
+    return balances;
+  }
+
+  public getCustomerSaleBalance(saleId: string): number {
+    const sale = this.db.customerSales.find(s => s.id === saleId);
+    if (!sale) return 0;
+    return this.getCustomerInvoiceBalances(sale.customerId).find(x => x.saleId === saleId)?.balanceYER || 0;
+  }
+
   public getCustomerPayments(customerId?: string): CustomerPayment[] {
     return this.db.customerPayments.filter(p => !customerId || p.customerId === customerId).slice().sort((a,b) => b.createdAt-a.createdAt);
   }
@@ -1142,27 +1193,28 @@ class StorageService {
     if (!Number.isFinite(data.amountYER) || data.amountYER <= 0) return { success: false, error: 'أدخل مبلغ تحصيل أكبر من صفر' };
     const balance = this.getCustomerBalance(customer.id);
     if (data.amountYER > balance) return { success: false, error: 'مبلغ التحصيل أكبر من رصيد البقالة الحالي' };
+
+    // Allocate new receipts to the oldest open invoice first, then to any opening balance.
+    const invoiceBalances = this.getCustomerInvoiceBalances(customer.id);
     let amountToAllocate = data.amountYER;
-    const openingAlreadyPaid = this.db.customerPayments.filter(p => p.customerId === customer.id).reduce((sum,p) => sum + (p.openingDebtAppliedYER || 0), 0);
-    const openingDebtRemaining = Math.max(0, (customer.openingDebtYER || 0) - openingAlreadyPaid);
-    const openingDebtAppliedYER = Math.min(amountToAllocate, openingDebtRemaining);
-    amountToAllocate -= openingDebtAppliedYER;
-    const allocations: { saleId: string; amountYER: number }[] = [];
-    const oldestSales = this.db.customerSales.filter(s => s.customerId === customer.id).slice().sort((a,b) => a.createdAt-b.createdAt);
-    for (const sale of oldestSales) {
+    const allocations: { saleId: string; saleNumber: string; amountYER: number }[] = [];
+    for (const invoice of invoiceBalances) {
       if (amountToAllocate <= 0) break;
-      const previouslyAllocated = this.db.customerPayments.reduce((sum,p) => sum + (p.allocations || []).filter(a=>a.saleId===sale.id).reduce((n,a)=>n+a.amountYER,0),0);
-      const outstanding = Math.max(0, sale.creditYER - previouslyAllocated);
-      if (outstanding <= 0) continue;
-      const amount = Math.min(amountToAllocate, outstanding);
-      allocations.push({saleId:sale.id,amountYER:amount});
+      if (invoice.balanceYER <= 0) continue;
+      const amount = Math.min(amountToAllocate, invoice.balanceYER);
+      allocations.push({ saleId: invoice.saleId, saleNumber: invoice.saleNumber, amountYER: amount });
       amountToAllocate -= amount;
     }
+    const outstandingOpeningBalance = Math.max(0, balance-invoiceBalances.reduce((n,x)=>n+x.balanceYER,0));
+    const openingBalanceAppliedYER = Math.min(amountToAllocate, outstandingOpeningBalance);
+    amountToAllocate -= openingBalanceAppliedYER;
+    if (amountToAllocate > 0.001) return { success:false, error:'تعذر توزيع مبلغ السداد على أرصدة العميل؛ راجع كشف الحساب قبل المتابعة' };
+
     const payment: CustomerPayment = {
       id: 'cpay-' + Date.now(), displayNumber: 'CP-' + (this.db.customerPayments.length + 1001),
       customerId: customer.id, customerName: customer.name, distributorId: data.distributorId,
       date: data.date, createdAt: Date.now(), amountYER: data.amountYER, method: data.method,
-      allocations, openingDebtAppliedYER, note: data.note
+      allocations, openingBalanceAppliedYER, note: data.note
     };
     this.db.customerPayments.unshift(payment);
     this.commit();
