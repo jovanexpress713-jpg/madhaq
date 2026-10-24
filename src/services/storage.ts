@@ -1693,26 +1693,30 @@ class StorageService {
       return { success:false, error:'الناتج السليم والتالف يتجاوز الكمية المخططة للوصفة' };
     }
 
-    // التحقق من كفاية المواد الخام
+    // Aggregate repeated recipe lines by raw-material ID before validating or deducting stock.
+    const requiredRawById = new Map<string, { raw: RawMaterial; quantity: number }>();
     for (const item of recipe.items) {
       const raw = this.getRawMaterialById(item.rawMaterialId);
       if (!raw) return { success: false, error: `المادة الخام (${item.rawMaterialName}) غير موجودة` };
       const needed = item.quantity * factor;
-      if (raw.stockQty < needed) {
+      const current = requiredRawById.get(raw.id);
+      if (current) current.quantity += needed;
+      else requiredRawById.set(raw.id, { raw, quantity: needed });
+    }
+    for (const { raw, quantity } of requiredRawById.values()) {
+      if (raw.stockQty < quantity) {
         return {
           success: false,
-          error: `المخزون غير كافٍ للمادة الخام (${raw.name}). المتاح: ${raw.stockQty} ${raw.unit}، والمطلوب: ${needed} ${raw.unit}`
+          error: `المخزون غير كافٍ للمادة الخام (${raw.name}). المتاح: ${raw.stockQty} ${raw.unit}، والمطلوب إجمالاً: ${quantity} ${raw.unit}`
         };
       }
     }
 
-    // خصم المواد الخام وحساب تكلفة الخامات المستهلكة
+    // Deduct each raw material once after all aggregate stock checks have passed.
     let totalMaterialCostYER = 0;
-    for (const item of recipe.items) {
-      const raw = this.getRawMaterialById(item.rawMaterialId)!;
-      const needed = item.quantity * factor;
-      totalMaterialCostYER += needed * raw.averageCostPerUnitYER;
-      this.updateRawMaterialStock(raw.id, -needed);
+    for (const { raw, quantity } of requiredRawById.values()) {
+      totalMaterialCostYER += quantity * raw.averageCostPerUnitYER;
+      this.updateRawMaterialStock(raw.id, -quantity);
     }
 
     // إضافة المنتج النهائي الصالح للمخزون
