@@ -5,6 +5,17 @@ const failures: string[] = [];
 const warnings: string[] = [];
 const ids = new Set<string>();
 const photoUrls = new Set<string>();
+const normalizeArabic = (value: string) => value.toLowerCase()
+  .replace(/[أإآ]/g, 'ا')
+  .replace(/ة/g, 'ه')
+  .replace(/[^\p{L}\p{N}\s]/gu, ' ')
+  .replace(/\s+/g, ' ')
+  .trim();
+const imageLabelStopWords = new Set([
+  'اقتصادي', 'اقتصادية', 'اقتصاديا', 'للبقالات', 'للمنتجات', 'المنتج', 'منتجات',
+  'يمنية', 'يمني', 'تقليدي', 'تقليدية', 'موثقة', 'المصدر', 'مرتبطة', 'بمصدر',
+  'منشور', 'نصف', 'مصنع', 'جاهز', 'جاهزة', 'وصفة', 'وصفات'
+]);
 
 for (const recipe of RECIPE_LIBRARY) {
   if (!recipe.id?.trim()) failures.push('وصفة بلا معرّف');
@@ -20,9 +31,14 @@ for (const recipe of RECIPE_LIBRARY) {
     if (ingredientNames.has(ingredient.name)) warnings.push(`مكوّن مكرر ${ingredient.name} في ${recipe.name}`);
     ingredientNames.add(ingredient.name);
   }
-  const meta = RECIPE_OPERATION_META[recipe.id] ?? DEFAULT_RECIPE_OPERATION_META;
+  const explicitMeta = RECIPE_OPERATION_META[recipe.id];
+  if (!explicitMeta) failures.push(`لا توجد صورة مرجعية مخصصة لهذه الوصفة: ${recipe.name}`);
+  const meta = explicitMeta ?? DEFAULT_RECIPE_OPERATION_META;
   if (!meta.imageUrl || !/^https:\/\//.test(meta.imageUrl)) failures.push(`صورة مرجعية غير صالحة: ${recipe.name}`);
   if (!meta.imageAlt?.trim()) failures.push(`وصف الصورة فارغ: ${recipe.name}`);
+  const nameTokens = normalizeArabic(recipe.name).split(' ').filter(token => token.length > 2 && !imageLabelStopWords.has(token));
+  const imageTokens = new Set(normalizeArabic(meta.imageAlt).split(' '));
+  if (!nameTokens.some(token => imageTokens.has(token))) failures.push(`وصف الصورة لا يطابق اسم الوصفة: ${recipe.name} — ${meta.imageAlt}`);
   if (meta.imageSourceUrl && !meta.imageSourceUrl.startsWith('https://')) failures.push(`رابط مصدر الصورة غير صالح: ${recipe.name}`);
   if (photoUrls.has(meta.imageUrl)) failures.push(`الصورة مستخدمة لوصفة أخرى وليست فريدة: ${recipe.name}`);
   photoUrls.add(meta.imageUrl);
