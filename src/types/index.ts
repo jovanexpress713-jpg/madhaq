@@ -287,6 +287,8 @@ export interface CustomerPayment {
   createdAt: number;
   amountYER: number;
   method: 'CASH' | 'TRANSFER';
+  allocations?: { saleId: string; amountYER: number }[];
+  openingDebtAppliedYER?: number;
   note?: string;
 }
 
