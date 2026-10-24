@@ -32,20 +32,20 @@ export function installReturnGuard(): void {
     const result = originalReturn(data);
     if (!result.success || !result.returnEntry) return result;
 
-    const priceByProduct = new Map(pricing.items.map((item) => [item.productId, item]));
+    const priceByProduct = new Map(pricing.items.map((item) => [item.productId, item.unitPriceYER]));
     const entry = storage.getDatabase().returns.find((item) => item.id === result.returnEntry!.id);
     if (!entry) return result;
 
     entry.items = entry.items.map((item) => {
-      const historical = priceByProduct.get(item.productId);
-      if (!historical) return item;
+      const historicalUnitPrice = priceByProduct.get(item.productId);
+      if (historicalUnitPrice === undefined) return item;
       return {
         ...item,
-        unitPriceYER: historical.unitPriceYER,
-        totalYER: historical.totalYER
+        unitPriceYER: historicalUnitPrice,
+        totalYER: item.quantity * historicalUnitPrice
       };
     });
-    entry.totalValueYER = pricing.totalValueYER || 0;
+    entry.totalValueYER = entry.items.reduce((sum, item) => sum + item.totalYER, 0);
 
     // تثبيت التصحيح فوراً في نفس قاعدة البيانات المحلية.
     localStorage.setItem('madhaq_factory_db_v1', JSON.stringify(storage.getDatabase()));
