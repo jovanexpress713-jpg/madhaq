@@ -1054,10 +1054,11 @@ class StorageService {
 
   public saveCustomer(data: Omit<ShopCustomer, 'id' | 'createdAt'> & { id?: string }): { success: boolean; error?: string; customer?: ShopCustomer } {
     if (!data.name.trim()) return { success: false, error: 'اسم البقالة مطلوب' };
+    if (!Number.isFinite(data.openingDebtYER) || data.openingDebtYER < 0) return { success:false, error:'الدين الافتتاحي يجب أن يكون صفراً أو مبلغاً موجباً' };
     if (!data.governorate.trim() || !data.district.trim() || !data.locality.trim()) {
       return { success: false, error: 'المحافظة والمديرية والمنطقة/القرية مطلوبة' };
     }
-    if (!this.getDistributorById(data.assignedDistributorId)) return { success: false, error: 'اختر الموزع المسؤول عن البقالة' };
+    if (!this.getDistributorById(data.assignedDistributorId)?.active) return { success: false, error: 'اختر موزعاً مسؤولاً نشطاً عن البقالة' };
     const duplicate = this.db.customers.find(c => c.id !== data.id &&
       ((data.phone && c.phone === data.phone) ||
        (c.name.trim().toLowerCase() === data.name.trim().toLowerCase() &&
@@ -1122,7 +1123,7 @@ class StorageService {
     monday.setDate(monday.getDate() - day);
     const weekKey = monday.toISOString().slice(0,10);
     const sale: CustomerSale = {
-      id: 'csale-' + Date.now(), displayNumber: 'CS-' + nextSeq,
+      id: 'csale-' + Date.now() + '-' + nextSeq, displayNumber: 'CS-' + nextSeq,
       customerId: customer.id, customerName: customer.name,
       distributorId: distributor.id, distributorName: distributor.name,
       governorate: customer.governorate, district: customer.district, locality: customer.locality,
@@ -1217,7 +1218,7 @@ class StorageService {
     if (amountToAllocate > 0.001) return { success:false, error:'تعذر توزيع مبلغ السداد على أرصدة العميل؛ راجع كشف الحساب قبل المتابعة' };
 
     const payment: CustomerPayment = {
-      id: 'cpay-' + Date.now(), displayNumber: 'CP-' + (this.db.customerPayments.length + 1001),
+      id: 'cpay-' + Date.now() + '-' + (this.db.customerPayments.length + 1), displayNumber: 'CP-' + (this.db.customerPayments.length + 1001),
       customerId: customer.id, customerName: customer.name, distributorId: data.distributorId,
       date: data.date, createdAt: Date.now(), amountYER: data.amountYER, method: data.method,
       allocations, openingDebtAppliedYER, note: data.note
@@ -1366,7 +1367,7 @@ class StorageService {
       });
     }
     const entry: CustomerReturn = {
-      id:'cret-' + Date.now(), displayNumber:'CR-' + (this.db.customerReturns.length + 1001),
+      id:'cret-' + Date.now() + '-' + (this.db.customerReturns.length + 1), displayNumber:'CR-' + (this.db.customerReturns.length + 1001),
       customerId:customer.id, customerName:customer.name, distributorId:distributor.id, distributorName:distributor.name,
       saleId:data.saleId, date:data.date, createdAt:Date.now(), items, totalYER, creditYER,
       reason:data.reason.trim(), status:'PENDING', note:data.note
@@ -1395,7 +1396,8 @@ class StorageService {
   public closeCustomerWeek(weekKey: string, closedBy='المدير'): {success:boolean;error?:string;close?:CustomerWeeklyClose} {
     if (!/^\d{4}-\d{2}-\d{2}$/.test(weekKey)) return {success:false,error:'تاريخ بداية الأسبوع غير صحيح'};
     if (this.db.customerWeeklyCloses.some(c=>c.weekKey===weekKey)) return {success:false,error:'تم إقفال هذا الأسبوع سابقاً؛ لا يمكن تكرار الإقفال'};
-    const start = new Date(weekKey + 'T00:00:00');
+    const start = new Date(weekKey + 'T12:00:00');
+    if (start.getDay() !== 1) return {success:false,error:'يجب أن يكون تاريخ بداية الأسبوع يوم الاثنين'};
     const end = new Date(start); end.setDate(end.getDate()+6);
     const endKey = end.getFullYear()+'-'+String(end.getMonth()+1).padStart(2,'0')+'-'+String(end.getDate()).padStart(2,'0');
     const activeCustomers = this.db.customers.filter(c=>c.active);
@@ -1732,7 +1734,7 @@ class StorageService {
 
     const nextSeq = this.db.productionBatches.length + 1001;
     const newBatch: ProductionBatch = {
-      id: 'batch-' + Date.now(),
+      id: 'batch-' + Date.now() + '-' + nextSeq,
       displayNumber: `BATCH-${nextSeq}`,
       recipeId: recipe.id,
       recipeName: recipe.name,
