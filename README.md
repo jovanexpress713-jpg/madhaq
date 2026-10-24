@@ -1,20 +1,49 @@
-<div align="center">
-<img width="1200" height="475" alt="GHBanner" src="https://ai.google.dev/static/site-assets/images/share-ais-513315318.png" />
-</div>
+# مذاق MADHAQ — نظام إدارة معمل الحلويات والتوزيع
 
-# Run and deploy your AI Studio app
+نظام عربي RTL مصمم لإدارة عمليات معمل الحلويات اليومية من الإنتاج إلى الموزعين والتحصيل وكشف الخميس.
 
-This contains everything you need to run your app locally.
+## الوحدات الرئيسية
+- لوحة التحكم والمؤشرات التشغيلية.
+- المنتجات النهائية والمخزون وحدود التنبيه.
+- المواد الخام والموردون والمشتريات ومدفوعات الموردين.
+- الوصفات التقليدية والوصفات المحسوبة بالتكلفة.
+- مكتبة الوصفات مع مصدر الوصفة، المقادير، خطوات التحضير، وصور مستقلة قابلة للتغيير.
+- تخطيط الإنتاج وتسجيل الدفعات، الكمية السليمة والتالف، التكلفة، صرف المواد الخام، وإضافة الناتج إلى مخزون المنتج النهائي.
+- فواتير التوزيع، أرصدة الموزعين، التحصيلات، المرتجعات، المصروفات، وكشف الخميس الأسبوعي.
+- النسخ الاحتياطي والاستعادة والطباعة.
 
-View your app in AI Studio: https://ai.studio/apps/15cd5a13-3c79-4d75-b288-2c93bec1e8b0
+## التشغيل المحلي
+المتطلبات: Bun حديث وNode.js متوافق.
 
-## Run Locally
+```bash
+bun install --frozen-lockfile
+bun run dev
+```
 
-**Prerequisites:**  Node.js
+## التحقق قبل التسليم
+```bash
+bun run lint
+bun run verify:production
+bun run verify:purchases
+bun run verify:returns
+bun run verify:supplier-payments
+bun run verify:recipes
+bun run verify:recipe-production
+bun run build
+```
 
+## تنزيل نسخة Android
+1. افتح تبويب Actions في هذا المستودع.
+2. افتح أحدث تشغيل ناجح باسم **MADHAQ Android APK** على الفرع `main`.
+3. من قسم Artifacts نزّل `MADHAQ-Android` وفك ضغط ZIP للحصول على ملف APK.
+4. انقل APK إلى هاتف Android وثبّته بعد السماح بالتثبيت من هذا المصدر عند الحاجة.
 
-1. Install dependencies:
-   `npm install`
-2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
-3. Run the app:
-   `npm run dev`
+## ملاحظات مهمة حول البيانات
+- النسخة الحالية تحفظ بيانات العمل محلياً داخل المتصفح/التطبيق؛ لا يوجد حتى الآن خادم مزامنة متعدد الأجهزة أو حسابات عمال متصلة.
+- فعّل النسخ الاحتياطي بانتظام واحتفظ بنسخة خارج الهاتف.
+- بيانات البداية تجريبية ويجب استبدالها ببيانات المعمل الفعلية قبل التشغيل.
+- المقادير التي تحولت من أكواب وملاعق إلى جرامات تقريبية تحتاج دفعة اختبار ووزن ناتج فعلي قبل اعتمادها للإنتاج التجاري.
+- مدة الصلاحية المسجلة مرجعية وليست إثباتاً مخبرياً أو اعتماداً لسلامة الغذاء.
+
+## بناء Android
+يبني GitHub Actions ملف APK تجريبياً قابلاً للتثبيت ويحتفظ به كـ Artifact لمدة محددة في صفحة تشغيل workflow. لا تضع مفاتيح API أو كلمات المرور داخل المستودع.
