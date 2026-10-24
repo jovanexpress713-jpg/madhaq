@@ -6,7 +6,7 @@ import { storage, formatYER } from '../services/storage';
 import { planLibraryRecipe } from '../services/recipeProduction';
 
 const normalize = (value: string) => value.trim().toLowerCase().replace(/[أإآ]/g, 'ا').replace(/ة/g, 'ه');
-const gramsPerStockUnit = (unit: string): number | null => { const u=normalize(unit).replace(/\\s/g,''); if(u.includes('كيس')&&(u.includes('50كجم')||u.includes('50kg')))return 50000; if(u.includes('كيس')&&(u.includes('25كجم')||u.includes('25kg')))return 25000; if(u.includes('سطل')&&(u.includes('5كجم')||u.includes('5kg')))return 5000; if(u.includes('كجم')||u.includes('كيلو')||u==='kg')return 1000; if(u.includes('جرام')||u.includes('غرام')||u==='g'||u==='gm')return 1; if(u.includes('لتر')||u==='l'||u.includes('liter'))return 1000; if(u.includes('مل')||u==='ml')return 1; return null; };
+const gramsPerStockUnit = (unit: string): number | null => { const u=normalize(unit).replace(/\s/g,''); if(u.includes('كيس')&&(u.includes('50كجم')||u.includes('50kg')))return 50000; if(u.includes('كيس')&&(u.includes('25كجم')||u.includes('25kg')))return 25000; if(u.includes('سطل')&&(u.includes('5كجم')||u.includes('5kg')))return 5000; if(u.includes('كجم')||u.includes('كيلو')||u==='kg')return 1000; if(u.includes('جرام')||u.includes('غرام')||u==='g'||u==='gm')return 1; if(u.includes('لتر')||u==='l'||u.includes('liter'))return 1000; if(u.includes('مل')||u==='ml')return 1; return null; };
 
 const recipeIdByProductId: Record<string, string> = {
   'samosa-sheets': 'samosa',
