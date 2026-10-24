@@ -1,5 +1,5 @@
 import React, { lazy, Suspense } from 'react';
-import { LayoutDashboard, Truck, Receipt, Users, CalendarCheck, UtensilsCrossed, Package, Boxes, Building2, Wallet, ChefHat, BookOpen, Factory } from 'lucide-react';
+import { LayoutDashboard, Truck, Receipt, Users, CalendarCheck, UtensilsCrossed, Package, Boxes, Building2, Wallet, ChefHat, BookOpen, Factory, Store } from 'lucide-react';
 const RecipesView = lazy(() => import('./RecipesView').then((module) => ({ default: module.RecipesView })));
 const RecipeLibraryView = lazy(() => import('./RecipeLibraryView').then((module) => ({ default: module.RecipeLibraryView })));
 const ManufacturedMaterialsView = lazy(() => import('./ManufacturedMaterialsView').then((module) => ({ default: module.ManufacturedMaterialsView })));
@@ -12,6 +12,7 @@ export const NavigationTabs: React.FC<NavigationTabsProps> = ({ activeTab, onSel
     { id: 'distributions', label: 'فواتير التوزيع', icon: Truck },
     { id: 'collections', label: 'سندات التحصيل', icon: Receipt },
     { id: 'distributors', label: 'الموزعون والحسابات', icon: Users },
+    { id: 'customers', label: 'البقالات وديون العملاء', icon: Store },
     { id: 'thursday', label: 'كشف الخميس الأسبوعي', icon: CalendarCheck, badge: 'رئيسي' },
     { id: 'production', label: 'الإنتاج', icon: UtensilsCrossed },
     { id: 'recipes', label: 'الوصفات والتكلفة', icon: ChefHat },
