@@ -1,4 +1,5 @@
 import { RecipeLibraryItem } from '../data/recipeLibrary';
+import { storage } from './storage';
 import { RECIPE_OPERATION_META, DEFAULT_RECIPE_OPERATION_META } from '../data/recipeOperations';
 
 const STORAGE_KEY = 'madhaq_factory_db_v1';
@@ -21,9 +22,8 @@ function gramsPerStockUnit(unit: string): number | null {
   return null;
 }
 function readDb(): any {
-  const raw = localStorage.getItem(STORAGE_KEY);
-  if (!raw) throw new Error('قاعدة بيانات المعمل غير موجودة.');
-  const db = JSON.parse(raw);
+  const db = JSON.parse(JSON.stringify(storage.getDatabase()));
+  if (!db) throw new Error('قاعدة بيانات المعمل غير موجودة.');
   db.rawMaterials = Array.isArray(db.rawMaterials) ? db.rawMaterials : [];
   db.products = Array.isArray(db.products) ? db.products : [];
   db.productionBatches = Array.isArray(db.productionBatches) ? db.productionBatches : [];
@@ -120,10 +120,11 @@ export function produceLibraryRecipe(input: { recipe: RecipeLibraryItem; batchGr
       expiryDateReference: expiryDate,
       note: input.note || 'إنتاج من مكتبة الوصفات؛ تاريخ الانتهاء مرجعي ويجب اعتماده بعد تحقق الصلاحية الفعلي.'
     });
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(db));
+    const saved = storage.importBackupJSON(JSON.stringify(db));
+    if (!saved.success) throw new Error(saved.error || 'تعذر حفظ دفعة الإنتاج.');
     return { productName: product.name, totalMaterialCostYER: plan.totalMaterialCostYER, totalFullCostYER: plan.totalFullCostYER, unitCostYER: plan.totalFullCostYER / producedQty, producedQty, damagedQty, shelfLifeDaysReference: operationMeta.shelfLifeDays, expiryDateReference: expiryDate };
   } catch (error) {
-    localStorage.setItem(STORAGE_KEY, snapshot);
+    storage.importBackupJSON(snapshot);
     throw error;
   }
 }
