@@ -1,4 +1,5 @@
 import { strict as assert } from 'node:assert';
+import type { RecipeLibraryItem } from '../src/data/recipeLibrary';
 
 const memory = new Map<string, string>();
 Object.defineProperty(globalThis, 'localStorage', {
@@ -30,7 +31,7 @@ memory.set('madhaq_recipe_material_links_v1', JSON.stringify({
 }));
 
 const { planLibraryRecipe, produceLibraryRecipe } = await import('../src/services/recipeProduction');
-const recipe = {
+const recipe: RecipeLibraryItem = {
   id: 'test-recipe',
   name: 'وصفة اختبار التكامل',
   category: 'حلويات',
