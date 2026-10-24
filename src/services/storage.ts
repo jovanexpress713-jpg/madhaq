@@ -1219,6 +1219,10 @@ class StorageService {
     for (const row of data.items) {
       const product = this.getProductById(row.productId);
       if (!product || !Number.isFinite(row.quantity) || row.quantity <= 0) return { success:false, error:'تحقق من الصنف والكمية' };
+      const soldQty = this.db.customerSales.filter(s => s.customerId === customer.id).reduce((sum,s) => sum + s.items.filter(i => i.productId === product.id).reduce((n,i)=>n+i.quantity,0),0);
+      const previouslyCreditedQty = this.db.customerReturns.filter(r => r.customerId === customer.id && r.status !== 'REJECTED').reduce((sum,r)=>sum+r.items.filter(i=>i.productId===product.id).reduce((n,i)=>n+i.quantity,0),0);
+      const requestedQty = data.items.filter(i=>i.productId===product.id).reduce((sum,i)=>sum+i.quantity,0);
+      if (requestedQty + previouslyCreditedQty > soldQty) return { success:false, error:`كمية المرتجع للصنف (${product.name}) تتجاوز الكمية المسجلة بيعاً للعميل` };
       const unitPriceYER = product.distributorPriceYER;
       const total = unitPriceYER * row.quantity;
       totalYER += total;
