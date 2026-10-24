@@ -1243,7 +1243,7 @@ class StorageService {
       else items.push({ productId: product.id, productName: product.name, unit: product.unit, quantity: row.quantity, producedQty: 0, fulfilledQty: 0, batchIds: [] });
     }
     const request: SupplyRequest = {
-      id: 'sreq-' + Date.now(), displayNumber: 'SR-' + (this.db.supplyRequests.length + 1001),
+      id: 'sreq-' + Date.now() + '-' + (this.db.supplyRequests.length + 1), displayNumber: 'SR-' + (this.db.supplyRequests.length + 1001),
       distributorId: distributor.id, distributorName: distributor.name, customerId: customer?.id, customerName: customer?.name,
       governorate: data.governorate, district: data.district, locality: data.locality,
       requestedDate: data.requestedDate, createdAt: Date.now(), items, status: 'SUBMITTED', note: data.note
