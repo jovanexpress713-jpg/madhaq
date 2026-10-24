@@ -54,6 +54,9 @@ jobs:
       - name: Supplier payment business-rule validation
         run: bun run verify:supplier-payments
 
+      - name: Full operational role workflow validation
+        run: bun run verify:role-workflow
+
       - name: Recipe catalog validation
         run: |
           bun run verify:recipes
