@@ -12,6 +12,18 @@ import {
   Lock
 } from 'lucide-react';
 
+const RECIPE_PHOTOS_KEY = 'madhaq_recipe_custom_photos_v2';
+const RECIPE_MATERIAL_LINKS_KEY = 'madhaq_recipe_material_links_v1';
+
+const readJsonSetting = (key: string): Record<string, string> => {
+  try {
+    const value = JSON.parse(localStorage.getItem(key) || '{}');
+    return value && typeof value === 'object' && !Array.isArray(value) ? value : {};
+  } catch {
+    return {};
+  }
+};
+
 interface BackupSettingsModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -31,7 +43,15 @@ export const BackupSettingsModal: React.FC<BackupSettingsModalProps> = ({
   if (!isOpen) return null;
 
   const handleDownloadBackup = () => {
-    const jsonStr = storage.exportBackupJSON();
+    const database = JSON.parse(storage.exportBackupJSON());
+    const jsonStr = JSON.stringify({
+      ...database,
+      _madhaqBackupVersion: 2,
+      recipeLibrarySettings: {
+        customPhotos: readJsonSetting(RECIPE_PHOTOS_KEY),
+        materialLinks: readJsonSetting(RECIPE_MATERIAL_LINKS_KEY)
+      }
+    }, null, 2);
     const dateStr = new Date().toISOString().slice(0, 10);
     const blob = new Blob([jsonStr], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
@@ -39,7 +59,7 @@ export const BackupSettingsModal: React.FC<BackupSettingsModalProps> = ({
     a.href = url;
     a.download = `نسخة_احتياطية_معمل_مذاق_${dateStr}.json`;
     a.click();
-    URL.revokeObjectURL(url);
+    window.setTimeout(() => URL.revokeObjectURL(url), 1500);
     setSuccessMessage('تم تنزيل ملف النسخة الاحتياطية بنجاح إلى جهازك.');
     setTimeout(() => setSuccessMessage(''), 4000);
   };
@@ -48,8 +68,8 @@ export const BackupSettingsModal: React.FC<BackupSettingsModalProps> = ({
     const file = e.target.files?.[0];
     if (!file) return;
 
-    if (file.size > 10 * 1024 * 1024) {
-      setErrorMessage('ملف النسخة الاحتياطية كبير جداً. الحد الأقصى 10 ميجابايت.');
+    if (file.size > 30 * 1024 * 1024) {
+      setErrorMessage('ملف النسخة الاحتياطية كبير جداً. الحد الأقصى 30 ميجابايت.');
       e.target.value = '';
       return;
     }
@@ -59,7 +79,8 @@ export const BackupSettingsModal: React.FC<BackupSettingsModalProps> = ({
       try {
         const content = event.target?.result as string;
         const parsed = JSON.parse(content);
-        const audit = validateDatabaseIntegrity(parsed);
+        const { _madhaqBackupVersion, recipeLibrarySettings, ...databasePayload } = parsed;
+        const audit = validateDatabaseIntegrity(databasePayload);
 
         if (!audit.valid) {
           const details = audit.issues
@@ -72,12 +93,27 @@ export const BackupSettingsModal: React.FC<BackupSettingsModalProps> = ({
           return;
         }
 
-        const res = storage.importBackupJSON(content);
+        const res = storage.importBackupJSON(JSON.stringify(databasePayload));
         if (res.success) {
+          let photoRestoreWarning = '';
+          if (recipeLibrarySettings && typeof recipeLibrarySettings === 'object') {
+            try {
+              const photos = recipeLibrarySettings.customPhotos;
+              const links = recipeLibrarySettings.materialLinks;
+              if (photos && typeof photos === 'object' && !Array.isArray(photos)) {
+                localStorage.setItem(RECIPE_PHOTOS_KEY, JSON.stringify(photos));
+              }
+              if (links && typeof links === 'object' && !Array.isArray(links)) {
+                localStorage.setItem(RECIPE_MATERIAL_LINKS_KEY, JSON.stringify(links));
+              }
+            } catch {
+              photoRestoreWarning = ' تعذر استعادة بعض إعدادات صور الوصفات بسبب مساحة التخزين؛ راجع الصور بعد الاستعادة.';
+            }
+          }
           const warningText = audit.warnings > 0 ? ` مع ${audit.warnings} تنبيهات غير حرجة.` : '';
-          setSuccessMessage(`تم فحص النسخة واسترجاعها بنجاح.${warningText}`);
+          setSuccessMessage(`تم فحص النسخة واسترجاعها بنجاح.${warningText}${photoRestoreWarning}`);
           onDataChanged();
-          setTimeout(() => setSuccessMessage(''), 5000);
+          setTimeout(() => setSuccessMessage(''), 7000);
         } else {
           setErrorMessage(res.error || 'فشل استرجاع الملف');
           setTimeout(() => setErrorMessage(''), 5000);
