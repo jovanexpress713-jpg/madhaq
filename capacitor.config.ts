@@ -1,4 +1,10 @@
-import type { CapacitorConfig } from '@capacitor/cli';
+type CapacitorConfig = {
+  appId: string;
+  appName: string;
+  webDir: string;
+  bundledWebRuntime?: boolean;
+  server?: { androidScheme?: string };
+};
 
 const config: CapacitorConfig = {
   appId: 'com.madhaq.factory',
