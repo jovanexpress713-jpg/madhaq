@@ -221,6 +221,103 @@ export interface ThursdayReportRow {
   weeklyCommissionYER: number;
 }
 
+
+export interface CustomerArea {
+  id: string;
+  governorate: string;
+  district: string;
+  locality: string;
+  active: boolean;
+  createdAt: number;
+}
+
+export interface ShopCustomer {
+  id: string;
+  name: string;
+  contactName?: string;
+  phone?: string;
+  governorate: string;
+  district: string;
+  locality: string;
+  address: string;
+  assignedDistributorId: string;
+  openingDebtYER: number;
+  active: boolean;
+  notes?: string;
+  createdAt: number;
+}
+
+export interface CustomerSaleItem {
+  productId: string;
+  productName: string;
+  unit: string;
+  quantity: number;
+  unitPriceYER: number;
+  totalYER: number;
+}
+
+export interface CustomerSale {
+  id: string;
+  displayNumber: string;
+  customerId: string;
+  customerName: string;
+  distributorId: string;
+  distributorName: string;
+  governorate: string;
+  district: string;
+  locality: string;
+  date: string;
+  createdAt: number;
+  items: CustomerSaleItem[];
+  totalYER: number;
+  paidYER: number;
+  creditYER: number;
+  dueDate?: string;
+  note?: string;
+  weekKey: string;
+}
+
+export interface CustomerPayment {
+  id: string;
+  displayNumber: string;
+  customerId: string;
+  customerName: string;
+  distributorId: string;
+  date: string;
+  createdAt: number;
+  amountYER: number;
+  method: 'CASH' | 'TRANSFER';
+  note?: string;
+}
+
+export type SupplyRequestStatus = 'SUBMITTED' | 'APPROVED' | 'REJECTED' | 'IN_PRODUCTION' | 'READY' | 'FULFILLED' | 'CANCELLED';
+
+export interface SupplyRequestItem {
+  productId: string;
+  productName: string;
+  unit: string;
+  quantity: number;
+}
+
+export interface SupplyRequest {
+  id: string;
+  displayNumber: string;
+  distributorId: string;
+  distributorName: string;
+  customerId?: string;
+  customerName?: string;
+  governorate: string;
+  district: string;
+  locality: string;
+  requestedDate: string;
+  createdAt: number;
+  items: SupplyRequestItem[];
+  status: SupplyRequestStatus;
+  note?: string;
+  reviewedAt?: number;
+  reviewedBy?: string;
+}
+
 export interface DatabaseSchema {
   distributors: Distributor[];
   products: Product[];
@@ -234,5 +331,10 @@ export interface DatabaseSchema {
   recipes: Recipe[];
   productionBatches: ProductionBatch[];
   expenses: Expense[];
+  areas: CustomerArea[];
+  customers: ShopCustomer[];
+  customerSales: CustomerSale[];
+  customerPayments: CustomerPayment[];
+  supplyRequests: SupplyRequest[];
   version: number;
 }
