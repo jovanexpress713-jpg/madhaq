@@ -74,6 +74,15 @@ assert(storage.reviewCustomerReturn(damaged.customerReturn.id, 'APPROVED').succe
 assert(storage.getCustomerBalance(customer.id) === sale.creditYER - 123, 'Approved damaged goods should credit the customer at original sale price');
 assert(product.stockQty === originalStock, 'Damaged goods must not increase factory stock');
 
+const payment = storage.createCustomerPayment({
+  customerId: customer.id, distributorId: distributor.id, date: '2026-10-22',
+  amountYER: 200, method: 'CASH'
+});
+assert(payment.success && payment.payment, 'Partial customer payment should be recorded');
+assert(payment.payment.allocations?.some(a => a.saleId === sale.id && a.amountYER === 200), 'Payment should allocate to the oldest unpaid invoice');
+assert(storage.getCustomerSaleBalance(sale.id) === sale.creditYER - 123 - 200, 'Invoice balance should reflect approved return and partial payment');
+assert(storage.getCustomerBalance(customer.id) === sale.creditYER - 123 - 200, 'Customer ledger should match invoice ledger');
+
 const close = storage.closeCustomerWeek('2026-10-19', 'اختبار');
 assert(close.success && close.close, 'Weekly close should be created');
 const snapshot = close.close.customerBalances.find(x => x.customerId === customer.id);
