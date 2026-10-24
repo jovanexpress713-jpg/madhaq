@@ -68,4 +68,29 @@ const duplicate = storage.executeProductionBatch({
 });
 assert(!duplicate.success, 'A completed request must not be produced twice through its request link');
 
-console.log('Distributor supply request to production workflow validation passed.');
+const stockRequestResult = storage.createSupplyRequest({
+  distributorId: distributor.id, governorate: 'البيضاء', district: 'مدينة البيضاء', locality: 'عزة',
+  requestedDate: '2026-10-24', items: [{ productId: product.id, quantity: 3 }], note: 'اختبار صرف مخزون جاهز'
+});
+assert(stockRequestResult.success && stockRequestResult.request, 'Stock fulfillment request should be created');
+assert(storage.updateSupplyRequestStatus(stockRequestResult.request.id, 'APPROVED').success, 'Stock request should be approved');
+const finishedStockBefore = product.stockQty;
+assert(storage.fulfillSupplyRequestFromStock(stockRequestResult.request.id).success, 'Approved request should be fulfilled from available finished stock');
+assert(product.stockQty === finishedStockBefore - 3, 'Stock fulfillment must deduct finished goods');
+const stockFulfilled = storage.getSupplyRequests().find(r => r.id === stockRequestResult.request?.id);
+assert(stockFulfilled?.status === 'READY' && stockFulfilled.fulfillmentSource === 'STOCK', 'Stock fulfillment should mark request ready with source');
+assert(stockFulfilled.items[0].fulfilledQty === 3, 'Stock fulfillment should record fulfilled quantity');
+
+const insufficientResult = storage.createSupplyRequest({
+  distributorId: distributor.id, governorate: 'البيضاء', district: 'مدينة البيضاء', locality: 'عزة',
+  requestedDate: '2026-10-24', items: [{ productId: product.id, quantity: 999999 }], note: 'اختبار منع المخزون السالب'
+});
+assert(insufficientResult.success && insufficientResult.request, 'Insufficient-stock test request should be created');
+assert(storage.updateSupplyRequestStatus(insufficientResult.request.id, 'APPROVED').success, 'Insufficient-stock test request should be approved');
+const beforeInsufficient = product.stockQty;
+const failedStockFulfillment = storage.fulfillSupplyRequestFromStock(insufficientResult.request.id);
+assert(!failedStockFulfillment.success, 'System must reject fulfillment when finished stock is insufficient');
+assert(product.stockQty === beforeInsufficient, 'Failed stock fulfillment must not mutate inventory');
+assert(storage.getSupplyRequests().find(r => r.id === insufficientResult.request?.id)?.status === 'APPROVED', 'Failed stock fulfillment must leave the request awaiting action');
+
+console.log('Distributor supply request, production and stock fulfillment validation passed.');
