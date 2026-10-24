@@ -31,7 +31,7 @@ const { planLibraryRecipe, produceLibraryRecipe } = await import('../src/service
 const recipe = {
   id: 'test-recipe',
   name: 'وصفة اختبار التكامل',
-  category: 'اختبار',
+  category: 'حلويات',
   baseYieldGrams: 100,
   ingredients: [{ name: 'سكر', grams: 20 }, { name: 'دقيق', grams: 30 }],
   laborCostYER: 0,
