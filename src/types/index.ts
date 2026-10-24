@@ -182,6 +182,7 @@ export interface ProductionBatch {
   totalMaterialCostYER: number;
   unitCostYER: number;
   note?: string;
+  supplyRequestId?: string;
 }
 
 export interface Expense {
@@ -307,6 +308,8 @@ export interface SupplyRequestItem {
   productName: string;
   unit: string;
   quantity: number;
+  producedQty?: number;
+  batchIds?: string[];
 }
 
 export interface SupplyRequest {
