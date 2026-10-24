@@ -39,6 +39,9 @@ jobs:
       - name: Return pricing business-rule validation
         run: bun run verify:returns
 
+      - name: Customer return workflow validation
+        run: bun run verify:customer-returns
+
       - name: Supplier payment business-rule validation
         run: bun run verify:supplier-payments
 
