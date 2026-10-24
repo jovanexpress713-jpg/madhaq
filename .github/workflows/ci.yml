@@ -43,7 +43,8 @@ jobs:
         run: bun run verify:supplier-payments
 
       - name: Recipe catalog validation
-        run: bun run verify:recipes
+        run: |
+          bun run verify:recipes
           bun run verify:recipe-production
 
       - name: Production build
