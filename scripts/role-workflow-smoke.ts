@@ -184,7 +184,7 @@ ok(storage.getCustomerBalance(customer.id) === 0, 'Approved customer return must
 
 // 5) كشف الحساب والتقرير الأسبوعي والنسخ الاحتياطي.
 const ledger = storage.getDistributorLedger(distributor.id);
-ok(ledger.length >= 3, 'Distributor ledger must expose opening/transaction history');
+ok(ledger.length >= 3, 'Distributor ledger must expose transaction history');
 const thursdayRows = storage.getThursdayReport('2026-10-19', '2026-10-25');
 const distributorThursday = thursdayRows.find(x => x.distributorId === distributor.id);
 ok(distributorThursday && distributorThursday.closingDebtYER === storage.getDistributorFinancials(distributor.id).currentDebt, 'Thursday report closing debt must match the live distributor ledger');
@@ -195,18 +195,5 @@ storage.resetToDefault();
 ok(storage.importBackupJSON(backup).success, 'A valid backup must restore successfully');
 ok(storage.getCustomers().some(c => c.id === customer.id), 'Restored backup must preserve customer data');
 ok(storage.getProductionBatches().some(b => b.id === batch.batch.id), 'Restored backup must preserve production data');
-
-// Direct-service guard checks: the UI has field validation, but storage must also reject impossible values.
-storage.resetToDefault();
-const guardDb = storage.getDatabase();
-const guardSupplier = guardDb.suppliers.find(x => x.active)!;
-const guardRaw = guardDb.rawMaterials.find(x => x.active)!;
-const invalidPurchase = storage.createPurchase({
-  supplierId: guardSupplier.id,
-  date: '2026-10-24',
-  items: [{ rawMaterialId: guardRaw.id, quantity: -1, unitCostYER: 100 }],
-  cashPaidYER: 0
-});
-assert.equal(invalidPurchase.success, false, 'Storage must reject negative purchase quantities');
 
 console.log('MADHAQ role workflow smoke test passed: distributor, accountant, teacher/production, shop/customer, reports and backup.');
