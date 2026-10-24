@@ -1328,7 +1328,7 @@ class StorageService {
       const openingYER=(c.openingDebtYER||0)+priorSales-priorPayments-priorReturns;
       const salesCreditYER=sales.reduce((n,x)=>n+x.creditYER,0);
       const paymentsYER=payments.reduce((n,x)=>n+x.amountYER,0);
-      const returnsYER=returns.reduce((n,x)=>n+x.totalYER,0);
+      const returnsYER=returns.reduce((n,x)=>n+(x.creditYER ?? x.totalYER),0);
       return {customerId:c.id,customerName:c.name,openingYER,salesCreditYER,paymentsYER,returnsYER,closingYER:openingYER+salesCreditYER-paymentsYER-returnsYER};
     });
     const sales=this.db.customerSales.filter(x=>x.date>=weekKey&&x.date<=endKey);
