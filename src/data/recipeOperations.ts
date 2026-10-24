@@ -8,11 +8,18 @@ export type RecipeOperationMeta = {
 };
 
 // صور مرجعية حقيقية من Unsplash. يمكن استبدالها لاحقاً بصور منتجات المعمل الفعلية.
+const photo = (id: string) => `https://images.unsplash.com/${id}?auto=format&fit=crop&w=1200&q=82`;
 const IMAGES = {
-  cake: 'https://images.unsplash.com/photo-1578985545062-69928b1d9587?auto=format&fit=crop&w=1200&q=82',
-  bakery: 'https://images.unsplash.com/photo-1509440159596-0249088772ff?auto=format&fit=crop&w=1200&q=82',
-  pastry: 'https://images.unsplash.com/photo-1555507036-ab1c4c8d5b1f?auto=format&fit=crop&w=1200&q=82',
-  drink: 'https://images.unsplash.com/photo-1544145945-f90425340c7e?auto=format&fit=crop&w=1200&q=82',
+  cake: photo('photo-1578985545062-69928b1d9587'),
+  bakery: photo('photo-1509440159596-0249088772ff'),
+  pastry: photo('photo-1555507036-ab1c4c8d5b1f'),
+  drink: photo('photo-1726039413774-614d0ca53d02'),
+  kunafa: photo('photo-1741424605439-9b3b0f54d755'),
+  baklava: photo('photo-1772729294786-7a264601887b'),
+  cookies: photo('photo-1689425863266-3b7432f9006b'),
+  samosa: photo('photo-1772729996007-40bad08b3c40'),
+  cupcakes: photo('photo-1573050435329-27ff3181380c'),
+  bread: photo('photo-1737093818249-8c72f5943350'),
 };
 
 export const RECIPE_OPERATION_META: Record<string, RecipeOperationMeta> = {
