@@ -2,7 +2,6 @@ import { RecipeLibraryItem } from '../data/recipeLibrary';
 import { storage } from './storage';
 import { RECIPE_OPERATION_META, DEFAULT_RECIPE_OPERATION_META } from '../data/recipeOperations';
 
-const STORAGE_KEY = 'madhaq_factory_db_v1';
 const MATERIAL_LINKS_KEY = 'madhaq_recipe_material_links_v1';
 type MaterialLinks = Record<string, string>;
 function readMaterialLinks(): MaterialLinks { try { const raw = localStorage.getItem(MATERIAL_LINKS_KEY); const value = raw ? JSON.parse(raw) : {}; return value && typeof value === 'object' ? value : {}; } catch { return {}; } }
