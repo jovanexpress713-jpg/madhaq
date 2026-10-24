@@ -40,6 +40,8 @@ export const CustomerOperationsView: React.FC = () => {
   const [paymentMethod, setPaymentMethod] = useState<'CASH'|'TRANSFER'>('CASH');
   const [requestDistributorId, setRequestDistributorId] = useState('');
   const [requestCustomerId, setRequestCustomerId] = useState('');
+  const [requestDistrict, setRequestDistrict] = useState('');
+  const [requestLocality, setRequestLocality] = useState('');
   const [requestDate, setRequestDate] = useState(new Date().toISOString().slice(0,10));
   const [requestLines, setRequestLines] = useState<{productId:string;quantity:number}[]>([{productId:'',quantity:1}]);
   const [requestNote, setRequestNote] = useState('');
@@ -118,10 +120,11 @@ export const CustomerOperationsView: React.FC = () => {
   const submitRequest = (e: React.FormEvent) => {
     e.preventDefault(); resetNotice();
     const customer = storage.getCustomerById(requestCustomerId);
+    if (!customer && (!requestDistrict.trim() || !requestLocality.trim())) { setError('حدد المديرية والمنطقة للطلب العام أو اختر بقالة محددة.'); return; }
     const result = storage.createSupplyRequest({
       distributorId: requestDistributorId, customerId: requestCustomerId || undefined,
-      governorate: customer?.governorate || governorate, district: customer?.district || district,
-      locality: customer?.locality || locality, requestedDate: requestDate,
+      governorate: customer?.governorate || 'البيضاء', district: customer?.district || requestDistrict,
+      locality: customer?.locality || requestLocality, requestedDate: requestDate,
       items: requestLines.filter(x=>x.productId && x.quantity>0).map(x=>({productId:x.productId,quantity:Number(x.quantity)})), note: requestNote
     });
     if (!result.success) { setError(result.error || 'تعذر إرسال الطلب'); return; }
@@ -283,6 +286,7 @@ export const CustomerOperationsView: React.FC = () => {
         <h3 className="font-black flex gap-2 items-center"><ClipboardList className="w-4 h-4 text-amber-500"/>طلب توريد من الموزع</h3>
         <select className={field} value={requestDistributorId} onChange={e=>setRequestDistributorId(e.target.value)} required><option value="">الموزع مقدم الطلب</option>{distributors.map(d=><option key={d.id} value={d.id}>{d.name}</option>)}</select>
         <select className={field} value={requestCustomerId} onChange={e=>setRequestCustomerId(e.target.value)}><option value="">طلب عام (بدون بقالة محددة)</option>{customers.filter(c=>!requestDistributorId||c.assignedDistributorId===requestDistributorId).map(c=><option key={c.id} value={c.id}>{c.name}</option>)}</select>
+        {!requestCustomerId && <><input className={field} list="madhaq-districts" value={requestDistrict} onChange={e=>setRequestDistrict(e.target.value)} placeholder="المديرية *" required/><datalist id="madhaq-districts">{areaDistrictOptions.map(d=><option key={d} value={d}/>)}</datalist><input className={field} list="madhaq-localities" value={requestLocality} onChange={e=>setRequestLocality(e.target.value)} placeholder="المنطقة / الحي / القرية *" required/><datalist id="madhaq-localities">{areas.filter(a=>a.district===requestDistrict).map(a=><option key={a.id} value={a.locality}/>)}</datalist></>}
         <input className={field} type="date" value={requestDate} onChange={e=>setRequestDate(e.target.value)} required/>
         {requestLines.map((line,i)=><div key={i} className="grid grid-cols-[1fr_90px_auto] gap-2"><select className={field} value={line.productId} onChange={e=>setRequestLines(prev=>prev.map((l,j)=>j===i?{...l,productId:e.target.value}:l))} required><option value="">الصنف المطلوب</option>{products.map(p=><option key={p.id} value={p.id}>{p.name}</option>)}</select><input className={field} type="number" min="1" value={line.quantity} onChange={e=>setRequestLines(prev=>prev.map((l,j)=>j===i?{...l,quantity:Number(e.target.value)}:l))} required/><button type="button" className="text-red-600 px-2" onClick={()=>setRequestLines(prev=>prev.filter((_,j)=>j!==i))}>×</button></div>)}
         <button type="button" onClick={()=>setRequestLines(prev=>[...prev,{productId:'',quantity:1}])} className="text-sm text-amber-700 font-bold">+ إضافة صنف آخر</button>
