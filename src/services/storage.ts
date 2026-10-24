@@ -1076,7 +1076,7 @@ class StorageService {
     if (!customer) return 0;
     const sales = this.db.customerSales.filter(s => s.customerId === customerId).reduce((sum, s) => sum + s.creditYER, 0);
     const payments = this.db.customerPayments.filter(p => p.customerId === customerId).reduce((sum, p) => sum + p.amountYER, 0);
-    const approvedReturns = (this.db.customerReturns || []).filter(r => r.customerId === customerId && r.status === 'APPROVED').reduce((sum, r) => sum + r.totalYER, 0);
+    const approvedReturns = (this.db.customerReturns || []).filter(r => r.customerId === customerId && r.status === 'APPROVED').reduce((sum, r) => sum + (r.creditYER ?? r.totalYER), 0);
     return (customer.openingDebtYER || 0) + sales - payments - approvedReturns;
   }
 
@@ -1212,27 +1212,66 @@ class StorageService {
   }): { success: boolean; error?: string; customerReturn?: CustomerReturn } {
     const customer = this.getCustomerById(data.customerId);
     const distributor = this.getDistributorById(data.distributorId);
-    if (!customer || !distributor || customer.assignedDistributorId !== distributor.id) return { success:false, error:'البقالة أو الموزع غير صحيح' };
+    if (!customer || !distributor || customer.assignedDistributorId !== distributor.id) {
+      return { success:false, error:'البقالة أو الموزع غير صحيح' };
+    }
     if (!data.items.length || !data.reason.trim()) return { success:false, error:'أدخل الأصناف وسبب المرتجع أو التالف' };
+
+    const sourceSale = data.saleId ? this.db.customerSales.find(x => x.id === data.saleId) : undefined;
+    if (data.saleId && (!sourceSale || sourceSale.customerId !== customer.id)) {
+      return { success:false, error:'الفاتورة الأصلية غير موجودة أو لا تخص هذه البقالة' };
+    }
     const items: CustomerReturn['items'] = [];
     let totalYER = 0;
+    let creditYER = 0;
+    const requestedByProduct = new Map<string, number>();
     for (const row of data.items) {
-      const product = this.getProductById(row.productId);
-      if (!product || !Number.isFinite(row.quantity) || row.quantity <= 0) return { success:false, error:'تحقق من الصنف والكمية' };
-      const soldQty = this.db.customerSales.filter(s => s.customerId === customer.id).reduce((sum,s) => sum + s.items.filter(i => i.productId === product.id).reduce((n,i)=>n+i.quantity,0),0);
-      const previouslyCreditedQty = this.db.customerReturns.filter(r => r.customerId === customer.id && r.status !== 'REJECTED').reduce((sum,r)=>sum+r.items.filter(i=>i.productId===product.id).reduce((n,i)=>n+i.quantity,0),0);
-      const requestedQty = data.items.filter(i=>i.productId===product.id).reduce((sum,i)=>sum+i.quantity,0);
-      if (requestedQty + previouslyCreditedQty > soldQty) return { success:false, error:`كمية المرتجع للصنف (${product.name}) تتجاوز الكمية المسجلة بيعاً للعميل` };
-      const unitPriceYER = product.distributorPriceYER;
+      if (!['DAMAGED','RETURNED','EXCHANGE'].includes(row.disposition)) return { success:false, error:'نوع الحركة غير صحيح' };
+      if (!Number.isFinite(row.quantity) || row.quantity <= 0) return { success:false, error:'تحقق من الصنف والكمية' };
+      requestedByProduct.set(row.productId, (requestedByProduct.get(row.productId) || 0) + row.quantity);
+    }
+
+    for (const [productId, requestedQty] of requestedByProduct) {
+      const product = this.getProductById(productId);
+      if (!product) return { success:false, error:'يوجد صنف غير موجود في الحركة' };
+      let soldQty = 0;
+      if (sourceSale) {
+        soldQty = sourceSale.items.filter(i => i.productId === productId).reduce((n,i)=>n+i.quantity,0);
+      } else {
+        soldQty = this.db.customerSales.filter(s => s.customerId === customer.id)
+          .reduce((sum,s) => sum + s.items.filter(i => i.productId === productId).reduce((n,i)=>n+i.quantity,0),0);
+      }
+      const previouslyCreditedQty = this.db.customerReturns
+        .filter(r => r.customerId === customer.id && r.status !== 'REJECTED' && (sourceSale ? r.saleId === sourceSale.id : true))
+        .reduce((sum,r)=>sum+r.items.filter(i=>i.productId===productId).reduce((n,i)=>n+i.quantity,0),0);
+      if (requestedQty + previouslyCreditedQty > soldQty) {
+        return { success:false, error:`كمية المرتجع للصنف (${product.name}) تتجاوز الكمية المسجلة بيعاً للعميل` };
+      }
+    }
+
+    for (const row of data.items) {
+      const product = this.getProductById(row.productId)!;
+      const sourceLines = sourceSale
+        ? sourceSale.items.filter(i => i.productId === product.id)
+        : this.db.customerSales.filter(s => s.customerId === customer.id)
+            .flatMap(s => s.items.filter(i => i.productId === product.id));
+      const sourceQty = sourceLines.reduce((n,i)=>n+i.quantity,0);
+      const sourceValue = sourceLines.reduce((n,i)=>n+i.quantity*i.unitPriceYER,0);
+      const unitPriceYER = sourceQty > 0 ? sourceValue / sourceQty : product.distributorPriceYER;
       const total = unitPriceYER * row.quantity;
       totalYER += total;
-      items.push({ productId:product.id, productName:product.name, unit:product.unit, quantity:row.quantity, unitPriceYER, totalYER:total, disposition:row.disposition });
+      // An exchange provides replacement goods, so it must not also reduce the customer's debt.
+      if (row.disposition !== 'EXCHANGE') creditYER += total;
+      items.push({
+        productId:product.id, productName:product.name, unit:product.unit,
+        quantity:row.quantity, unitPriceYER, totalYER:total, disposition:row.disposition
+      });
     }
     const entry: CustomerReturn = {
       id:'cret-' + Date.now(), displayNumber:'CR-' + (this.db.customerReturns.length + 1001),
       customerId:customer.id, customerName:customer.name, distributorId:distributor.id, distributorName:distributor.name,
-      saleId:data.saleId, date:data.date, createdAt:Date.now(), items, totalYER, reason:data.reason.trim(),
-      status:'PENDING', note:data.note
+      saleId:data.saleId, date:data.date, createdAt:Date.now(), items, totalYER, creditYER,
+      reason:data.reason.trim(), status:'PENDING', note:data.note
     };
     this.db.customerReturns.unshift(entry);
     this.commit();
@@ -1243,15 +1282,8 @@ class StorageService {
     const entry = this.db.customerReturns.find(r => r.id === id);
     if (!entry) return {success:false,error:'حركة المرتجع غير موجودة'};
     if (entry.status !== 'PENDING') return {success:false,error:'تمت مراجعة هذه الحركة مسبقاً'};
-    if (status === 'APPROVED') {
-      // Only accepted, non-damaged goods may return to saleable stock.
-      for (const item of entry.items) {
-        if (item.disposition === 'RETURNED' || item.disposition === 'EXCHANGE') {
-          const product = this.getProductById(item.productId);
-          if (product) product.stockQty += item.quantity;
-        }
-      }
-    }
+    // Returns from a shop go back to the distributor, not directly into the factory's finished stock.
+    // Factory stock was already reduced when the distributor's load was issued.
     entry.status=status; entry.reviewedAt=Date.now(); entry.reviewedBy=reviewedBy;
     this.commit();
     return {success:true};
@@ -1275,7 +1307,7 @@ class StorageService {
       const returns = this.db.customerReturns.filter(x=>x.customerId===c.id && x.status==='APPROVED' && x.date>=weekKey && x.date<=endKey);
       const priorSales = this.db.customerSales.filter(x=>x.customerId===c.id && x.date<weekKey).reduce((n,x)=>n+x.creditYER,0);
       const priorPayments = this.db.customerPayments.filter(x=>x.customerId===c.id && x.date<weekKey).reduce((n,x)=>n+x.amountYER,0);
-      const priorReturns = this.db.customerReturns.filter(x=>x.customerId===c.id && x.status==='APPROVED' && x.date<weekKey).reduce((n,x)=>n+x.totalYER,0);
+      const priorReturns = this.db.customerReturns.filter(x=>x.customerId===c.id && x.status==='APPROVED' && x.date<weekKey).reduce((n,x)=>n+(x.creditYER ?? x.totalYER),0);
       const openingYER=(c.openingDebtYER||0)+priorSales-priorPayments-priorReturns;
       const salesCreditYER=sales.reduce((n,x)=>n+x.creditYER,0);
       const paymentsYER=payments.reduce((n,x)=>n+x.amountYER,0);
@@ -1289,7 +1321,7 @@ class StorageService {
       id:'cweek-'+weekKey,weekKey,closedAt:Date.now(),closedBy,customerCount:activeCustomers.length,
       totalSalesYER:sales.reduce((n,x)=>n+x.totalYER,0),
       totalCollectionsYER:payments.reduce((n,x)=>n+x.amountYER,0),
-      totalApprovedReturnsYER:returns.reduce((n,x)=>n+x.totalYER,0),
+      totalApprovedReturnsYER:returns.reduce((n,x)=>n+(x.creditYER ?? x.totalYER),0),
       customerBalances
     };
     this.db.customerWeeklyCloses.unshift(close);
