@@ -330,6 +330,8 @@ export default function App() {
           <ProductionView
             isOpenBatchModal={isProductionBatchOpen}
             onCloseBatchModal={() => setIsProductionBatchOpen(false)}
+            onOpenBatchModal={() => setIsProductionBatchOpen(true)}
+            onSuccessBatch={() => setTick((t) => t + 1)}
           />
         )}
 
