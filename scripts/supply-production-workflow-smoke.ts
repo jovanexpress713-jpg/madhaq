@@ -93,4 +93,37 @@ assert(!failedStockFulfillment.success, 'System must reject fulfillment when fin
 assert(product.stockQty === beforeInsufficient, 'Failed stock fulfillment must not mutate inventory');
 assert(storage.getSupplyRequests().find(r => r.id === insufficientResult.request?.id)?.status === 'APPROVED', 'Failed stock fulfillment must leave the request awaiting action');
 
-console.log('Distributor supply request, production and stock fulfillment validation passed.');
+storage.resetToDefault();
+const duplicateDb = storage.getDatabase();
+const duplicateProduct = duplicateDb.products.find(x => x.active);
+assert(duplicateProduct, 'Seed data must include a product for duplicate-material test');
+const duplicateRaw = storage.saveRawMaterial({
+  name: 'خام مكرر اختبار',
+  unit: 'كيلو',
+  stockQty: 10,
+  minimumQty: 1,
+  averageCostPerUnitYER: 15,
+  active: true
+});
+const duplicateRecipe = storage.saveRecipe({
+  productId: duplicateProduct.id,
+  productName: duplicateProduct.name,
+  name: 'وصفة تكرر نفس الخام',
+  outputQty: 10,
+  items: [
+    { rawMaterialId: duplicateRaw.id, rawMaterialName: duplicateRaw.name, quantity: 6, unit: duplicateRaw.unit },
+    { rawMaterialId: duplicateRaw.id, rawMaterialName: duplicateRaw.name, quantity: 6, unit: duplicateRaw.unit }
+  ],
+  active: true,
+  notes: 'اختبار تجميع احتياج الخام المكرر'
+});
+const duplicateStockBefore = duplicateProduct.stockQty;
+const duplicateRawBefore = duplicateRaw.stockQty;
+const rejectedBatch = storage.executeProductionBatch({
+  recipeId: duplicateRecipe.id, date: '2026-10-24', multiplier: 1, producedQty: 10, damagedQty: 0
+});
+assert(!rejectedBatch.success, 'Production must reject aggregate raw demand above available stock');
+assert(duplicateRaw.stockQty === duplicateRawBefore, 'Rejected production must not deduct any raw material');
+assert(duplicateProduct.stockQty === duplicateStockBefore, 'Rejected production must not add finished goods');
+
+console.log('Distributor supply request, production, stock fulfillment and raw-material aggregation validation passed.');
