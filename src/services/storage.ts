@@ -1142,10 +1142,27 @@ class StorageService {
     if (!Number.isFinite(data.amountYER) || data.amountYER <= 0) return { success: false, error: 'أدخل مبلغ تحصيل أكبر من صفر' };
     const balance = this.getCustomerBalance(customer.id);
     if (data.amountYER > balance) return { success: false, error: 'مبلغ التحصيل أكبر من رصيد البقالة الحالي' };
+    let amountToAllocate = data.amountYER;
+    const openingAlreadyPaid = this.db.customerPayments.filter(p => p.customerId === customer.id).reduce((sum,p) => sum + (p.openingDebtAppliedYER || 0), 0);
+    const openingDebtRemaining = Math.max(0, (customer.openingDebtYER || 0) - openingAlreadyPaid);
+    const openingDebtAppliedYER = Math.min(amountToAllocate, openingDebtRemaining);
+    amountToAllocate -= openingDebtAppliedYER;
+    const allocations: { saleId: string; amountYER: number }[] = [];
+    const oldestSales = this.db.customerSales.filter(s => s.customerId === customer.id).slice().sort((a,b) => a.createdAt-b.createdAt);
+    for (const sale of oldestSales) {
+      if (amountToAllocate <= 0) break;
+      const previouslyAllocated = this.db.customerPayments.reduce((sum,p) => sum + (p.allocations || []).filter(a=>a.saleId===sale.id).reduce((n,a)=>n+a.amountYER,0),0);
+      const outstanding = Math.max(0, sale.creditYER - previouslyAllocated);
+      if (outstanding <= 0) continue;
+      const amount = Math.min(amountToAllocate, outstanding);
+      allocations.push({saleId:sale.id,amountYER:amount});
+      amountToAllocate -= amount;
+    }
     const payment: CustomerPayment = {
       id: 'cpay-' + Date.now(), displayNumber: 'CP-' + (this.db.customerPayments.length + 1001),
       customerId: customer.id, customerName: customer.name, distributorId: data.distributorId,
-      date: data.date, createdAt: Date.now(), amountYER: data.amountYER, method: data.method, note: data.note
+      date: data.date, createdAt: Date.now(), amountYER: data.amountYER, method: data.method,
+      allocations, openingDebtAppliedYER, note: data.note
     };
     this.db.customerPayments.unshift(payment);
     this.commit();
