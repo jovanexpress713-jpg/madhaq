@@ -14,16 +14,9 @@ const db: DatabaseSchema = {
   expenses: [],
   collections: [],
   returns: [{
-    id: 'ret1',
-    displayNumber: 'RET-1',
-    distributorId: 'd1',
-    distributorName: 'اختبار',
-    date: '2026-10-22',
-    createdAt: 30,
+    id: 'ret1', displayNumber: 'RET-1', distributorId: 'd1', distributorName: 'اختبار', date: '2026-10-22', createdAt: 30,
     items: [{ productId: 'p1', productName: 'صنف اختبار', quantity: 5, unitPriceYER: 100, totalYER: 500, restock: false }],
-    totalValueYER: 500,
-    settlementType: 'REDUCE_DEBT',
-    reason: 'اختبار'
+    totalValueYER: 500, settlementType: 'REDUCE_DEBT', reason: 'اختبار'
   }],
   distributions: [
     {
@@ -39,8 +32,11 @@ const db: DatabaseSchema = {
   ]
 };
 
+// FIFO: the first 5 returned units consume the already-returned quantity from the first lot,
+// leaving 5 units at 100 and taking 2 units from the second lot at 200.
+// Expected weighted price = (5*100 + 2*200) / 7 = 128.571...
 const result = calculateHistoricalReturnPricing(db, 'd1', [{ productId: 'p1', quantity: 7 }]);
-if (!result.valid || !result.items || result.items[0].unitPriceYER !== 150 || result.totalValueYER !== 1050) {
+if (!result.valid || result.items?.[0]?.unitPriceYER !== 900 / 7 || result.totalValueYER !== 900) {
   throw new Error(`Historical return pricing smoke test failed: ${JSON.stringify(result)}`);
 }
 
