@@ -10,7 +10,8 @@
     "clean": "rm -rf dist server.js",
     "lint": "tsc --noEmit",
     "verify:production": "tsx scripts/production-validation-smoke.ts",
-    "verify:purchases": "tsx scripts/purchase-validation-smoke.ts"
+    "verify:purchases": "tsx scripts/purchase-validation-smoke.ts",
+    "verify:returns": "tsx scripts/return-pricing-smoke.ts"
   },
   "dependencies": {
     "@google/genai": "^2.4.0",
