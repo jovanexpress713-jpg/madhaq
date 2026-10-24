@@ -309,6 +309,7 @@ export interface SupplyRequestItem {
   unit: string;
   quantity: number;
   producedQty?: number;
+  fulfilledQty?: number;
   batchIds?: string[];
 }
 
@@ -326,6 +327,7 @@ export interface SupplyRequest {
   createdAt: number;
   items: SupplyRequestItem[];
   status: SupplyRequestStatus;
+  fulfillmentSource?: 'STOCK' | 'PRODUCTION';
   note?: string;
   reviewedAt?: number;
   reviewedBy?: string;
