@@ -1240,7 +1240,7 @@ class StorageService {
       if (!product || !Number.isFinite(row.quantity) || row.quantity <= 0) return { success: false, error: 'تحقق من الأصناف والكميات المطلوبة' };
       const existingItem = items.find(item => item.productId === product.id);
       if (existingItem) existingItem.quantity += row.quantity;
-      else items.push({ productId: product.id, productName: product.name, unit: product.unit, quantity: row.quantity, producedQty: 0, batchIds: [] });
+      else items.push({ productId: product.id, productName: product.name, unit: product.unit, quantity: row.quantity, producedQty: 0, fulfilledQty: 0, batchIds: [] });
     }
     const request: SupplyRequest = {
       id: 'sreq-' + Date.now(), displayNumber: 'SR-' + (this.db.supplyRequests.length + 1001),
@@ -1253,13 +1253,34 @@ class StorageService {
     return { success: true, request };
   }
 
+  public fulfillSupplyRequestFromStock(id: string, reviewedBy='المدير'): {success:boolean;error?:string} {
+    const request = this.db.supplyRequests.find(r => r.id === id);
+    if (!request) return {success:false,error:'الطلب غير موجود'};
+    if (request.status !== 'APPROVED') return {success:false,error:'يجب اعتماد الطلب أولاً قبل صرف المخزون'};
+    const resolved = request.items.map(item => ({ item, product: this.getProductById(item.productId) }));
+    const missing = resolved.find(x => !x.product || !x.product.active);
+    if (missing) return {success:false,error:`الصنف (${missing.item.productName}) غير موجود أو غير مفعل`};
+    const insufficient = resolved.find(x => x.product!.stockQty < x.item.quantity);
+    if (insufficient) return {success:false,error:`المخزون غير كافٍ للصنف (${insufficient.item.productName}). المتاح ${insufficient.product!.stockQty} والمطلوب ${insufficient.item.quantity}`};
+    for (const row of resolved) {
+      row.product!.stockQty -= row.item.quantity;
+      row.item.fulfilledQty = row.item.quantity;
+    }
+    request.fulfillmentSource = 'STOCK';
+    request.status = 'READY';
+    request.reviewedAt = Date.now();
+    request.reviewedBy = reviewedBy;
+    this.commit();
+    return {success:true};
+  }
+
   public updateSupplyRequestStatus(id: string, status: SupplyRequestStatus, reviewedBy = 'المدير'): { success: boolean; error?: string } {
     const request = this.db.supplyRequests.find(r => r.id === id);
     if (!request) return { success: false, error: 'الطلب غير موجود' };
     const allowed: Record<SupplyRequestStatus, SupplyRequestStatus[]> = {
       SUBMITTED: ['APPROVED','REJECTED','CANCELLED'],
-      APPROVED: ['IN_PRODUCTION','READY','CANCELLED'],
-      REJECTED: [], IN_PRODUCTION: ['READY','CANCELLED'], READY: ['FULFILLED','CANCELLED'],
+      APPROVED: ['IN_PRODUCTION','CANCELLED'],
+      REJECTED: [], IN_PRODUCTION: ['CANCELLED'], READY: ['FULFILLED','CANCELLED'],
       FULFILLED: [], CANCELLED: []
     };
     if (!allowed[request.status].includes(status)) return { success: false, error: 'انتقال حالة الطلب غير مسموح' };
@@ -1721,8 +1742,10 @@ class StorageService {
     this.db.productionBatches.unshift(newBatch);
     if (linkedRequest && linkedRequestItem) {
       linkedRequestItem.producedQty = (linkedRequestItem.producedQty || 0) + data.producedQty;
+      linkedRequestItem.fulfilledQty = Math.min(linkedRequestItem.quantity, linkedRequestItem.producedQty);
       linkedRequestItem.batchIds = [...(linkedRequestItem.batchIds || []), newBatch.id];
-      if (linkedRequest.items.every(item => (item.producedQty || 0) >= item.quantity)) {
+      linkedRequest.fulfillmentSource = 'PRODUCTION';
+      if (linkedRequest.items.every(item => (item.fulfilledQty || 0) >= item.quantity)) {
         linkedRequest.status = 'READY';
         linkedRequest.reviewedAt = Date.now();
         linkedRequest.reviewedBy = 'المعلم / الإنتاج';
