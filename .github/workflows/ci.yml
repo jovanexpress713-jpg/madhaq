@@ -36,6 +36,9 @@ jobs:
       - name: Distribution and return workflow validation
         run: bun run verify:distribution-returns
 
+      - name: Thursday report week-range validation
+        run: bun run verify:thursday-range
+
       - name: Purchase business-rule validation
         run: bun run verify:purchases
 
