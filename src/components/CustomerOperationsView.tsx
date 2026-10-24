@@ -53,6 +53,7 @@ export const CustomerOperationsView: React.FC = () => {
   const [returnDisposition, setReturnDisposition] = useState<'DAMAGED'|'RETURNED'|'EXCHANGE'>('DAMAGED');
   const [returnReason, setReturnReason] = useState('تالف عند العميل');
   const [returnNote, setReturnNote] = useState('');
+  const [selectedCloseWeekKey, setSelectedCloseWeekKey] = useState('');
   const [weekKey, setWeekKey] = useState(() => {
     const d=new Date(); d.setHours(12,0,0,0); d.setDate(d.getDate()-((d.getDay()+6)%7)); return d.toISOString().slice(0,10);
   });
@@ -74,6 +75,8 @@ export const CustomerOperationsView: React.FC = () => {
     [c.name,c.phone,c.district,c.locality,c.address].some(v => (v || '').toLowerCase().includes(search.toLowerCase()))
   ), [customers,search]);
   const balance = (id: string) => storage.getCustomerBalance(id);
+  const weeklyCloses = storage.getCustomerWeeklyCloses();
+  const selectedWeekClose = weeklyCloses.find(w => w.weekKey === selectedCloseWeekKey) || weeklyCloses[0];
   const currentSaleTotal = saleLines.reduce((sum,line) => {
     const p = products.find(x => x.id === line.productId);
     return sum + (p ? line.quantity * (line.unitPriceYER || p.distributorPriceYER) : 0);
@@ -264,7 +267,12 @@ export const CustomerOperationsView: React.FC = () => {
       <h3 className="font-black">إقفال أسبوع العملاء وترحيل الأرصدة</h3>
       <p className="text-sm text-stone-500">يحفظ النظام لقطة أسبوعية لكل بقالة: رصيد أول الأسبوع + الآجل - التحصيلات - المرتجعات المعتمدة = رصيد آخر الأسبوع. الإقفال لا يمحو أو يكرر الحركات.</p>
       <div className="flex flex-wrap items-end gap-3"><label className="space-y-1 text-sm"><span>بداية الأسبوع (الاثنين)</span><input className={field} type="date" value={weekKey} onChange={e=>setWeekKey(e.target.value)} /></label><button onClick={closeWeek} className="rounded-xl bg-amber-500 px-5 py-3 font-black text-stone-950">إقفال الأسبوع</button></div>
-      <div className="overflow-x-auto"><table className="w-full text-right text-xs"><thead><tr className="border-b border-stone-200 dark:border-stone-700 text-stone-500"><th className="p-2">الأسبوع</th><th className="p-2">عدد البقالات</th><th className="p-2">إجمالي البيع</th><th className="p-2">التحصيلات</th><th className="p-2">المرتجعات</th><th className="p-2">إجمالي الرصيد المرحل</th></tr></thead><tbody>{storage.getCustomerWeeklyCloses().map(w=><tr key={w.id} className="border-b border-stone-100 dark:border-stone-800"><td className="p-2">{w.weekKey}</td><td className="p-2">{w.customerCount}</td><td className="p-2">{formatYER(w.totalSalesYER)}</td><td className="p-2">{formatYER(w.totalCollectionsYER)}</td><td className="p-2">{formatYER(w.totalApprovedReturnsYER)}</td><td className="p-2 font-bold">{formatYER(w.customerBalances.reduce((n,x)=>n+x.closingYER,0))}</td></tr>)}</tbody></table></div>
+      <div className="overflow-x-auto"><table className="w-full text-right text-xs"><thead><tr className="border-b border-stone-200 dark:border-stone-700 text-stone-500"><th className="p-2">الأسبوع</th><th className="p-2">عدد البقالات</th><th className="p-2">إجمالي البيع</th><th className="p-2">التحصيلات</th><th className="p-2">المرتجعات</th><th className="p-2">إجمالي الرصيد المرحل</th></tr></thead><tbody>{weeklyCloses.map(w=><tr key={w.id} onClick={()=>setSelectedCloseWeekKey(w.weekKey)} className={`border-b border-stone-100 dark:border-stone-800 cursor-pointer ${(selectedWeekClose?.weekKey===w.weekKey)?'bg-amber-50 dark:bg-amber-950/30':''}`}><td className="p-2 font-bold">{w.weekKey}</td><td className="p-2">{w.customerCount}</td><td className="p-2">{formatYER(w.totalSalesYER)}</td><td className="p-2">{formatYER(w.totalCollectionsYER)}</td><td className="p-2">{formatYER(w.totalApprovedReturnsYER)}</td><td className="p-2 font-bold">{formatYER(w.customerBalances.reduce((n,x)=>n+x.closingYER,0))}</td></tr>)}</tbody></table></div>
+      {selectedWeekClose && <div className="rounded-2xl border border-amber-200 dark:border-amber-900 overflow-hidden">
+        <div className="p-4 bg-amber-50 dark:bg-amber-950/30 flex flex-wrap justify-between gap-2"><div><h4 className="font-black">كشف أرصدة البقالات المرحّلة</h4><p className="text-xs text-stone-600 dark:text-stone-300 mt-1">أسبوع {selectedWeekClose.weekKey} · اضغط على أي أسبوع لعرض كشفه</p></div><strong>{formatYER(selectedWeekClose.customerBalances.reduce((n,x)=>n+x.closingYER,0))}</strong></div>
+        <div className="overflow-x-auto"><table className="w-full text-right text-xs"><thead><tr className="border-b border-stone-200 dark:border-stone-700 text-stone-500"><th className="p-2">البقالة</th><th className="p-2">رصيد سابق</th><th className="p-2">آجل الأسبوع</th><th className="p-2">المسدّد</th><th className="p-2">مرتجعات معتمدة</th><th className="p-2">المتبقي المرحّل</th></tr></thead><tbody>{selectedWeekClose.customerBalances.slice().sort((a,b)=>b.closingYER-a.closingYER).map(row=><tr key={row.customerId} className="border-b border-stone-100 dark:border-stone-800"><td className="p-2 font-bold">{row.customerName}</td><td className="p-2">{formatYER(row.openingYER)}</td><td className="p-2">{formatYER(row.salesCreditYER)}</td><td className="p-2 text-emerald-600">{formatYER(row.paymentsYER)}</td><td className="p-2">{formatYER(row.returnsYER)}</td><td className={`p-2 font-black ${row.closingYER>0?'text-red-600':'text-emerald-600'}`}>{formatYER(row.closingYER)}</td></tr>)}</tbody></table></div>
+        {selectedWeekClose.customerBalances.length===0&&<p className="p-4 text-sm text-stone-500">لا توجد أرصدة مسجلة لهذا الأسبوع.</p>}
+      </div>}
       <p className="text-xs text-stone-500">الأرصدة المرحلة محفوظة في كشف الإقفال، وتبقى الحركات الأصلية كما هي. لا يمكن إقفال نفس الأسبوع مرتين.</p>
     </div>}
     {section==='alerts' && <div className={card+' space-y-3'}>
