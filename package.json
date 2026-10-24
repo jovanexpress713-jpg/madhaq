@@ -12,7 +12,8 @@
     "verify:production": "tsx scripts/production-validation-smoke.ts",
     "verify:purchases": "tsx scripts/purchase-validation-smoke.ts",
     "verify:returns": "tsx scripts/return-pricing-smoke.ts",
-    "verify:supplier-payments": "tsx scripts/supplier-payment-validation-smoke.ts"
+    "verify:supplier-payments": "tsx scripts/supplier-payment-validation-smoke.ts",
+    "verify:recipes": "tsx scripts/recipe-library-validation.ts"
   },
   "dependencies": {
     "@google/genai": "^2.4.0",
