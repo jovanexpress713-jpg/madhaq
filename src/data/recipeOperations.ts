@@ -42,6 +42,11 @@ export const RECIPE_OPERATION_META: Record<string, RecipeOperationMeta> = {
   'berry-drink': { shelfLifeDays: 7, storage: 'مبرد باستمرار؛ اختبار الصلاحية ضروري قبل التوزيع.', packaging: 'زجاجة غذائية محكمة.', imageUrl: IMAGES.drink, imageAlt: 'مشروب توت', recommendedBatchGrams: 20000 },
   'lemon-drink': { shelfLifeDays: 5, storage: 'مبرد باستمرار وبعبوة مغلقة.', packaging: 'زجاجة غذائية محكمة.', imageUrl: IMAGES.drink, imageAlt: 'مشروب ليمون', recommendedBatchGrams: 20000 },
   'date-milk': { shelfLifeDays: 2, storage: 'تبريد مستمر؛ الحليب الطازج لا يُفترض أن يدوم أسبوعاً دون معالجة صناعية معتمدة.', packaging: 'عبوة غذائية مبردة.', imageUrl: IMAGES.drink, imageAlt: 'حليب بالتمر', recommendedBatchGrams: 10000 },
+
+  'kunafa-dough': { shelfLifeDays: 2, storage: 'يحفظ مبرداً ومحكماً، أو مجمداً بعد اختبار الجودة؛ لا تعتمد المدة دون تحقق فعلي.', packaging: 'أكياس غذائية محكمة بوزن ثابت مع تاريخ الإنتاج.', imageUrl: IMAGES.pastry, imageAlt: 'عجينة ومعجنات مرجعية', recommendedBatchGrams: 20000 },
+  'baklava-sheets': { shelfLifeDays: 2, storage: 'تحفظ مبردة ومحكمة لمنع الجفاف والتلوث؛ التجميد يحتاج اختباراً للملمس والجودة.', packaging: 'فواصل غذائية وأكياس محكمة تمنع الجفاف.', imageUrl: IMAGES.pastry, imageAlt: 'رقائق ومعجنات مرجعية', recommendedBatchGrams: 20000 },
+  'cream-filling': { shelfLifeDays: 2, storage: 'تبريد مستمر وسريع بعد التحضير؛ هذه مدة احترازية مرجعية وليست اعتماداً صحياً للصلاحية.', packaging: 'عبوة غذائية محكمة ومبردة مع تسجيل وقت التحضير.', imageUrl: IMAGES.cake, imageAlt: 'حشوة حلويات مرجعية', recommendedBatchGrams: 5000 },
+  'sugar-syrup': { shelfLifeDays: 7, storage: 'يحفظ في وعاء نظيف محكم بعد التبريد؛ الصلاحية تتغير حسب التركيز والنظافة وطريقة التعبئة.', packaging: 'عبوة غذائية محكمة مع تاريخ التحضير.', imageUrl: IMAGES.drink, imageAlt: 'شيرة وقطر مرجعي', recommendedBatchGrams: 20000 },
 };
 
 export const DEFAULT_RECIPE_OPERATION_META: RecipeOperationMeta = {
