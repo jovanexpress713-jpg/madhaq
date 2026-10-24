@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { storage, formatYER } from '../services/storage';
+import { calculateHistoricalReturnPricing } from '../services/returnPricing';
 import { ReturnEntry } from '../types';
 import { RotateCcw, X, Plus, Trash2, AlertCircle } from 'lucide-react';
 
@@ -43,10 +44,11 @@ export const ReturnsModal: React.FC<ReturnsModalProps> = ({ isOpen, onClose, onS
 
   const selectedDistributor = distributors.find((d) => d.id === distributorId);
   const fin = selectedDistributor ? storage.getDistributorFinancials(selectedDistributor.id) : null;
-  const totalValue = items.reduce((sum, it) => {
-    const p = products.find((prod) => prod.id === it.productId);
-    return sum + Math.max(0, Number(it.quantity) || 0) * (p?.distributorPriceYER || 0);
-  }, 0);
+  const pricing = selectedDistributor
+    ? calculateHistoricalReturnPricing(storage.getDatabase(), selectedDistributor.id, items.map((it) => ({ productId: it.productId, quantity: Math.max(0, Number(it.quantity) || 0) })))
+    : { valid: false, totalValueYER: 0 };
+  const totalValue = pricing.valid ? pricing.totalValueYER || 0 : 0;
+  const historicalPriceByProduct = new Map((pricing.items || []).map((item) => [item.productId, item.unitPriceYER]));
   const debtExceeded = settlementType === 'REDUCE_DEBT' && !!fin && totalValue > Math.max(0, fin.currentDebt);
 
   const addItemRow = () => setItems((prev) => [...prev, { productId: products[0]?.id || '', quantity: 1, restock: false }]);
@@ -67,6 +69,7 @@ export const ReturnsModal: React.FC<ReturnsModalProps> = ({ isOpen, onClose, onS
     if (items.some((it) => !it.productId || !Number.isFinite(Number(it.quantity)) || Number(it.quantity) <= 0)) {
       return setError('يرجى التأكد من الأصناف والكميات المرتجعة');
     }
+    if (!pricing.valid) return setError(pricing.error || 'لا توجد كمية تاريخية كافية لهذا المرتجع');
     if (totalValue <= 0) return setError('قيمة المرتجع يجب أن تكون أكبر من صفر');
     if (settlementType === 'REDUCE_DEBT' && (!fin || fin.currentDebt <= 0)) {
       return setError('لا يوجد دين مستحق يمكن خصم قيمة المرتجع منه');
@@ -116,8 +119,9 @@ export const ReturnsModal: React.FC<ReturnsModalProps> = ({ isOpen, onClose, onS
             <div className="flex items-center justify-between font-bold"><span>أصناف المرتجع / التالف:</span><button type="button" onClick={addItemRow} className="min-h-11 px-3 text-amber-600 hover:underline flex items-center gap-1"><Plus className="w-3.5 h-3.5" /><span>إضافة صنف</span></button></div>
             {items.map((row, idx) => {
               const prod = products.find((p) => p.id === row.productId);
+              const historicalPrice = historicalPriceByProduct.get(row.productId);
               return <div key={idx} className="p-3 bg-stone-50 dark:bg-stone-800/60 border border-stone-200 dark:border-stone-700 rounded-2xl grid grid-cols-12 gap-2 items-center">
-                <div className="col-span-6"><select value={row.productId} onChange={(e) => updateItem(idx, 'productId', e.target.value)} className="w-full px-2 py-2 bg-white dark:bg-stone-800 border border-stone-200 dark:border-stone-700 rounded-xl text-xs">{products.map((p) => <option key={p.id} value={p.id}>{p.name} ({formatYER(p.distributorPriceYER)})</option>)}</select></div>
+                <div className="col-span-6"><select value={row.productId} onChange={(e) => updateItem(idx, 'productId', e.target.value)} className="w-full px-2 py-2 bg-white dark:bg-stone-800 border border-stone-200 dark:border-stone-700 rounded-xl text-xs">{products.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}</select><div className="mt-1 text-[10px] text-stone-500">السعر التاريخي: {historicalPrice ? formatYER(historicalPrice) : 'غير متاح'}</div></div>
                 <div className="col-span-2"><input type="number" min="1" value={row.quantity} onChange={(e) => updateItem(idx, 'quantity', Number(e.target.value))} className="w-full px-2 py-2 bg-white dark:bg-stone-800 border rounded-xl text-xs font-mono font-bold" /></div>
                 <div className="col-span-3"><label className="min-h-11 flex items-center gap-1.5 text-[11px] cursor-pointer"><input type="checkbox" checked={row.restock} onChange={(e) => updateItem(idx, 'restock', e.target.checked)} /><span>إعادة للمخزون؟</span></label></div>
                 <div className="col-span-1 text-center">{items.length > 1 && <button type="button" onClick={() => removeItemRow(idx)} className="p-2 min-w-11 min-h-11 text-rose-500" aria-label="حذف الصنف"><Trash2 className="w-4 h-4" /></button>}</div>
@@ -136,7 +140,7 @@ export const ReturnsModal: React.FC<ReturnsModalProps> = ({ isOpen, onClose, onS
 
           <div className="flex items-center gap-2 pt-2">
             <button type="button" onClick={onClose} className="flex-1 min-h-11 py-3 rounded-xl border font-semibold">إلغاء</button>
-            <button type="submit" disabled={debtExceeded || (settlementType === 'REDUCE_DEBT' && (!fin || fin.currentDebt <= 0))} className="flex-1 min-h-11 py-3 rounded-xl bg-amber-500 hover:bg-amber-400 disabled:opacity-50 disabled:cursor-not-allowed text-stone-950 font-bold">تأكيد وحفظ المرتجع</button>
+            <button type="submit" disabled={!pricing.valid || debtExceeded || (settlementType === 'REDUCE_DEBT' && (!fin || fin.currentDebt <= 0))} className="flex-1 min-h-11 py-3 rounded-xl bg-amber-500 hover:bg-amber-400 disabled:opacity-50 disabled:cursor-not-allowed text-stone-950 font-bold">تأكيد وحفظ المرتجع</button>
           </div>
         </form>
       </div>
