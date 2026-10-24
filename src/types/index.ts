@@ -341,6 +341,8 @@ export interface CustomerReturn {
   createdAt: number;
   items: CustomerReturnItem[];
   totalYER: number;
+  /** Amount that actually reduces the customer's debt; exchanges normally have zero credit. */
+  creditYER?: number;
   reason: string;
   status: CustomerReturnStatus;
   note?: string;
