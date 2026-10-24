@@ -45,7 +45,7 @@ export function formatNumber(val: number, decimals = 0): string {
 
 // بيانات نموذجية واقعية للتشغيل الأولي لمعمل حلويات "مذاق"
 const INITIAL_DATABASE: DatabaseSchema = {
-  version: 2,
+  version: 3,
   areas: [],
   customers: [],
   customerSales: [],
