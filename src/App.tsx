@@ -6,6 +6,7 @@ import { BottomNav } from './components/BottomNav';
 import { MobileMoreModal } from './components/MobileMoreModal';
 import { Dashboard } from './components/Dashboard';
 import { DistributorsView } from './components/DistributorsView';
+import { CustomerOperationsView } from './components/CustomerOperationsView';
 import { ProductsView } from './components/ProductsView';
 import { RawMaterialsView } from './components/RawMaterialsView';
 import { SuppliersView } from './components/SuppliersView';
@@ -317,6 +318,9 @@ export default function App() {
             </div>
           </div>
         )}
+
+        {/* CUSTOMER LEDGER AND SUPPLY REQUESTS */}
+        {activeTab === 'customers' && <CustomerOperationsView />}
 
         {/* THURSDAY REPORT */}
         {activeTab === 'thursday' && <ThursdayReportView />}
