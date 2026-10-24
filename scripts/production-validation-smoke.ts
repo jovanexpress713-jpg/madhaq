@@ -38,7 +38,31 @@ const rejectsShortStock = validateProductionBatch(db, {
   damagedQty: 0
 });
 
-if (!ok.valid || rejectsOverflow.valid || rejectsShortStock.valid) {
+// نفس المادة مرتين في الوصفة يجب أن تُجمع قبل فحص الرصيد.
+const duplicateRawDb = {
+  ...db,
+  recipes: [{
+    ...db.recipes[0],
+    items: [
+      { rawMaterialId: 'r1', rawMaterialName: 'خام', quantity: 6, unit: 'كيلو' },
+      { rawMaterialId: 'r1', rawMaterialName: 'خام', quantity: 6, unit: 'كيلو' }
+    ]
+  }]
+} as DatabaseSchema;
+
+const rejectsDuplicateConsumption = validateProductionBatch(duplicateRawDb, {
+  recipeId: 'rec1',
+  multiplier: 1,
+  producedQty: 10,
+  damagedQty: 0
+});
+
+if (
+  !ok.valid ||
+  rejectsOverflow.valid ||
+  rejectsShortStock.valid ||
+  rejectsDuplicateConsumption.valid
+) {
   throw new Error('Production validation smoke test failed.');
 }
 
