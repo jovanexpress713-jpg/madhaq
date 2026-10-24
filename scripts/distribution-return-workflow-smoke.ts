@@ -83,6 +83,20 @@ assert.equal(validReturn.success, true, 'A return for previously distributed sto
 assert.equal(validReturn.returnEntry?.items[0].unitPriceYER, 100, 'Return must use historical invoice price, not today\'s price');
 assert.equal(validReturn.returnEntry?.totalValueYER, 100, 'Saved return total must match the historical price shown in the UI');
 
+const cashBeforeRefund = storage.getCashboxSummary().netCashBalance;
+const cashRefund = storage.createReturn({
+  distributorId: distributor.id,
+  date: '2026-10-24',
+  items: [{ productId: product.id, quantity: 1, restock: false }],
+  settlementType: 'CASH_REFUND',
+  reason: 'اختبار رد نقدي',
+});
+assert.equal(cashRefund.success, true, 'Cash refund for a previously distributed unit should succeed');
+assert.equal(cashRefund.returnEntry?.totalValueYER, 100, 'Cash refund must use historical invoice pricing');
+const cashAfterRefund = storage.getCashboxSummary();
+assert.equal(cashAfterRefund.netCashBalance, cashBeforeRefund - 100, 'Cash refund must reduce the cashbox balance');
+assert.equal(cashAfterRefund.returnCash, 100, 'Cashbox breakdown must show distributor cash refunds separately');
+
 const returnsBeforeOverReturn = db.returns.length;
 const overReturn = storage.createReturn({
   distributorId: distributor.id,
