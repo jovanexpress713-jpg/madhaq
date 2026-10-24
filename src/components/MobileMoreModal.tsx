@@ -1,54 +1,17 @@
 import React from 'react';
-import {
-  UtensilsCrossed,
-  Package,
-  Boxes,
-  Building2,
-  Wallet,
-  Database,
-  X,
-  RotateCcw,
-  ChefHat
-} from 'lucide-react';
-
-interface MobileMoreModalProps {
-  isOpen: boolean;
-  onClose: () => void;
-  onSelectTab: (tab: string) => void;
-  onOpenBackup: () => void;
-  onOpenReturns: () => void;
-}
-
-export const MobileMoreModal: React.FC<MobileMoreModalProps> = ({ isOpen, onClose, onSelectTab, onOpenBackup, onOpenReturns }) => {
-  if (!isOpen) return null;
-
-  const items = [
-    { id: 'production', title: 'الوصفات والإنتاج', desc: 'إعداد الوصفات وتسجيل دفعات الإنتاج اليومية', icon: UtensilsCrossed, color: 'text-amber-400 bg-amber-500/10 border-amber-500/30' },
-    { id: 'recipes', title: 'حاسبة الوصفات والمقاسات', desc: 'تكلفة المواد، مقاس الصينية، وزن التعبئة، سعر البيع والربح', icon: ChefHat, color: 'text-orange-400 bg-orange-500/10 border-orange-500/30' },
-    { id: 'products', title: 'مخزون المنتجات الجاهزة', desc: 'الأصناف الجاهزة للبيع والأسعار والتنبيهات', icon: Package, color: 'text-blue-400 bg-blue-500/10 border-blue-500/30' },
-    { id: 'rawMaterials', title: 'المواد الخام والمستودع', desc: 'الدقيق والسمن والفستق والسكر ومتوسط التكلفة', icon: Boxes, color: 'text-emerald-400 bg-emerald-500/10 border-emerald-500/30' },
-    { id: 'suppliers', title: 'الموردون وفواتير الشراء', desc: 'أرصدة الموردين وفواتير التوريد والسداد', icon: Building2, color: 'text-purple-400 bg-purple-500/10 border-purple-500/30' },
-    { id: 'expenses', title: 'المصروفات والصندوق النقدي', desc: 'المصروفات اليومية وجرد السيولة النقدية', icon: Wallet, color: 'text-rose-400 bg-rose-500/10 border-rose-500/30' },
-  ];
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/75 backdrop-blur-sm p-0 sm:p-4 animate-in fade-in duration-200">
-      <div className="w-full max-w-lg bg-stone-900 border-t sm:border border-amber-800/40 rounded-t-3xl sm:rounded-3xl p-5 text-white max-h-[90vh] overflow-y-auto shadow-2xl">
-        <div className="flex items-center justify-between pb-3 border-b border-stone-800">
-          <div><h3 className="text-lg font-bold text-amber-300">أقسام وعمليات المعمل</h3><p className="text-xs text-stone-400">اختر القسم الذي تريد الانتقال إليه أو إدارته</p></div>
-          <button onClick={onClose} className="p-1.5 rounded-full bg-stone-800 hover:bg-stone-700 text-stone-400 hover:text-white"><X className="w-5 h-5" /></button>
-        </div>
-        <div className="grid grid-cols-1 gap-2.5 my-4">
-          {items.map((item) => { const Icon = item.icon; return <button key={item.id} onClick={() => { onSelectTab(item.id); onClose(); }} className="flex items-center gap-3.5 p-3 rounded-2xl bg-stone-800/80 hover:bg-stone-700/80 border border-stone-700 text-right transition active:scale-[0.98]">
-            <div className={`w-11 h-11 rounded-xl flex items-center justify-center border shrink-0 ${item.color}`}><Icon className="w-5 h-5" /></div>
-            <div className="flex-1"><div className="font-bold text-sm text-stone-100">{item.title}</div><div className="text-xs text-stone-400 leading-snug">{item.desc}</div></div>
-          </button>; })}
-        </div>
-        <div className="pt-3 border-t border-stone-800 flex items-center gap-2">
-          <button onClick={() => { onOpenReturns(); onClose(); }} className="flex-1 flex items-center justify-center gap-2 bg-stone-800 hover:bg-stone-700 text-amber-200 border border-stone-700 py-2.5 rounded-xl text-xs font-semibold"><RotateCcw className="w-4 h-4 text-amber-400" /><span>تسجيل مرتجع / تالف</span></button>
-          <button onClick={() => { onOpenBackup(); onClose(); }} className="flex-1 flex items-center justify-center gap-2 bg-amber-600/20 hover:bg-amber-600/30 text-amber-300 border border-amber-500/40 py-2.5 rounded-xl text-xs font-bold"><Database className="w-4 h-4 text-amber-400" /><span>النسخ الاحتياطي والبيانات</span></button>
-        </div>
-      </div>
-    </div>
-  );
+import { UtensilsCrossed, Package, Boxes, Building2, Wallet, Database, X, RotateCcw, ChefHat, BookOpen, Factory } from 'lucide-react';
+interface MobileMoreModalProps { isOpen:boolean; onClose:()=>void; onSelectTab:(tab:string)=>void; onOpenBackup:()=>void; onOpenReturns:()=>void; }
+export const MobileMoreModal:React.FC<MobileMoreModalProps>=({isOpen,onClose,onSelectTab,onOpenBackup,onOpenReturns})=>{
+ if(!isOpen)return null;
+ const items=[
+  {id:'production',title:'الوصفات والإنتاج',desc:'إعداد الوصفات وتسجيل دفعات الإنتاج اليومية',icon:UtensilsCrossed,color:'text-amber-400 bg-amber-500/10 border-amber-500/30'},
+  {id:'recipes',title:'حاسبة الوصفات والمقاسات',desc:'تكلفة المواد، المقاسات، وزن التعبئة والربح',icon:ChefHat,color:'text-orange-400 bg-orange-500/10 border-orange-500/30'},
+  {id:'recipeLibrary',title:'مكتبة الوصفات الاقتصادية',desc:'حلويات ومعجنات ومخبوزات وكيك ومشروبات',icon:BookOpen,color:'text-yellow-400 bg-yellow-500/10 border-yellow-500/30'},
+  {id:'manufacturedMaterials',title:'إنتاج المواد الخام',desc:'رقائق سمبوسة، عجينة كنافة، بقلاوة وعجائن نصف مصنعة',icon:Factory,color:'text-emerald-400 bg-emerald-500/10 border-emerald-500/30'},
+  {id:'products',title:'مخزون المنتجات الجاهزة',desc:'الأصناف الجاهزة للبيع والأسعار والتنبيهات',icon:Package,color:'text-blue-400 bg-blue-500/10 border-blue-500/30'},
+  {id:'rawMaterials',title:'المواد الخام والمستودع',desc:'الدقيق والسمن والفستق والسكر ومتوسط التكلفة',icon:Boxes,color:'text-emerald-400 bg-emerald-500/10 border-emerald-500/30'},
+  {id:'suppliers',title:'الموردون وفواتير الشراء',desc:'أرصدة الموردين وفواتير التوريد والسداد',icon:Building2,color:'text-purple-400 bg-purple-500/10 border-purple-500/30'},
+  {id:'expenses',title:'المصروفات والصندوق النقدي',desc:'المصروفات اليومية وجرد السيولة النقدية',icon:Wallet,color:'text-rose-400 bg-rose-500/10 border-rose-500/30'}
+ ];
+ return <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/75 backdrop-blur-sm p-0 sm:p-4 animate-in fade-in duration-200"><div className="w-full max-w-lg bg-stone-900 border-t sm:border border-amber-800/40 rounded-t-3xl sm:rounded-3xl p-5 text-white max-h-[90vh] overflow-y-auto shadow-2xl"><div className="flex items-center justify-between pb-3 border-b border-stone-800"><div><h3 className="text-lg font-bold text-amber-300">أقسام وعمليات المعمل</h3><p className="text-xs text-stone-400">إدارة الإنتاج والوصفات والتوزيع والمواد الخام</p></div><button onClick={onClose} className="p-1.5 rounded-full bg-stone-800 text-stone-400"><X className="w-5 h-5"/></button></div><div className="grid grid-cols-1 gap-2.5 my-4">{items.map(item=>{const Icon=item.icon;return <button key={item.id} onClick={()=>{onSelectTab(item.id);onClose();}} className="flex items-center gap-3.5 p-3 rounded-2xl bg-stone-800/80 border border-stone-700 text-right transition active:scale-[0.98]"><div className={`w-11 h-11 rounded-xl flex items-center justify-center border shrink-0 ${item.color}`}><Icon className="w-5 h-5"/></div><div className="flex-1"><div className="font-bold text-sm text-stone-100">{item.title}</div><div className="text-xs text-stone-400 leading-snug">{item.desc}</div></div></button>})}</div><div className="pt-3 border-t border-stone-800 flex items-center gap-2"><button onClick={()=>{onOpenReturns();onClose();}} className="flex-1 flex items-center justify-center gap-2 bg-stone-800 text-amber-200 border border-stone-700 py-2.5 rounded-xl text-xs font-semibold"><RotateCcw className="w-4 h-4 text-amber-400"/>تسجيل مرتجع / تالف</button><button onClick={()=>{onOpenBackup();onClose();}} className="flex-1 flex items-center justify-center gap-2 bg-amber-600/20 text-amber-300 border border-amber-500/40 py-2.5 rounded-xl text-xs font-bold"><Database className="w-4 h-4 text-amber-400"/>النسخ الاحتياطي</button></div></div></div>;
 };
