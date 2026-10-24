@@ -29,7 +29,7 @@ function readDb(): any {
 function findMaterial(name: string, materials: Material[]): Material | null {
   const target = normalize(name);
   const active = materials.filter((m) => m.active !== false);
-  return active.find((m) => normalize(m.name) === target) ?? active.find((m) => normalize(m.name).includes(target) || target.includes(normalize(m.name))) ?? null;
+  return active.find((m) => normalize(m.name) === target) ?? null;
 }
 
 function scaledRecipeCosts(recipe: RecipeLibraryItem, batchGrams: number) {
