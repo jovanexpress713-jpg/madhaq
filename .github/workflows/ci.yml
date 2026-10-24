@@ -44,6 +44,7 @@ jobs:
 
       - name: Recipe catalog validation
         run: bun run verify:recipes
+          bun run verify:recipe-production
 
       - name: Production build
         run: bun run build
