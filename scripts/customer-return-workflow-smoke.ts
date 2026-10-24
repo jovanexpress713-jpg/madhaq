@@ -11,6 +11,12 @@ const product = db.products.find(x => x.active);
 assert(distributor, 'Seed data must include an active distributor');
 assert(product, 'Seed data must include an active product');
 
+const invalidOpeningDebt = storage.saveCustomer({
+  name: 'بقالة بدين افتتاحي سالب', governorate: 'البيضاء', district: 'مدينة البيضاء', locality: 'عزة',
+  address: 'اختبار', assignedDistributorId: distributor.id, openingDebtYER: -1, active: true
+});
+assert(!invalidOpeningDebt.success, 'Negative opening debt must be rejected');
+
 const saved = storage.saveCustomer({
   name: 'بقالة اختبار المرتجعات',
   governorate: 'البيضاء',
@@ -89,5 +95,6 @@ const snapshot = close.close.customerBalances.find(x => x.customerId === custome
 assert(snapshot, 'Weekly close should include the customer');
 assert(snapshot.closingYER === storage.getCustomerBalance(customer.id), 'Weekly close balance must match the live customer ledger, including exchange neutrality');
 assert(!storage.closeCustomerWeek('2026-10-19', 'اختبار').success, 'The same week must not be closed twice');
+assert(!storage.closeCustomerWeek('2026-10-20', 'اختبار').success, 'Weekly close must reject a start date that is not Monday');
 
 console.log('Customer return and weekly close workflow validation passed.');
