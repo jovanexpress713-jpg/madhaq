@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { storage, formatYER, formatNumber } from '../services/storage';
 import { ThursdayReportRow } from '../types';
+import { getLatestThursdayWeekRange } from '../services/thursdayWeekRange';
 import {
   CalendarCheck,
   Printer,
@@ -14,22 +15,9 @@ import {
 } from 'lucide-react';
 
 export const ThursdayReportView: React.FC = () => {
-  // حساب تواريخ الأسبوع الحالي تلقائيًا (من الجمعة السابقة حتى الخميس الحالي)
-  const now = new Date();
-  const dayOfWeek = now.getDay(); // 0 is Sunday, 4 is Thursday, 5 is Friday
-  
-  // نحدد تاريخ بداية الأسبوع (الجمعة السابقة) وتاريخ الخميس
-  const getDefaultDates = () => {
-    const end = new Date();
-    const start = new Date();
-    start.setDate(now.getDate() - 6);
-    return {
-      start: start.toISOString().slice(0, 10),
-      end: end.toISOString().slice(0, 10)
-    };
-  };
+  // الافتراضي هو آخر أسبوع عمل كامل من الجمعة إلى الخميس، بالتاريخ المحلي.
+  const defaultDates = getLatestThursdayWeekRange();
 
-  const defaultDates = getDefaultDates();
   const [startDate, setStartDate] = useState(defaultDates.start);
   const [endDate, setEndDate] = useState(defaultDates.end);
   const [selectedDistributorFilter, setSelectedDistributorFilter] = useState('ALL');
