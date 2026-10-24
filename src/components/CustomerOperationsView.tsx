@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { AlertCircle, CheckCircle2, ClipboardList, MapPin, Plus, ReceiptText, Store, Wallet } from 'lucide-react';
 import { storage, formatYER } from '../services/storage';
+import { AL_BAYDA_DISTRICTS } from '../data/alBaydaDistricts';
 import { CustomerSale, ShopCustomer, SupplyRequestStatus } from '../types';
 
 type SaleLine = { productId: string; quantity: number; unitPriceYER: number };
@@ -60,7 +61,7 @@ export const CustomerOperationsView: React.FC = () => {
   const distributors = db.distributors.filter(d => d.active);
   const products = db.products.filter(p => p.active);
   const areas = db.areas.filter(a => a.active && a.governorate === 'البيضاء');
-  const areaDistrictOptions = [...new Set(areas.map(a => a.district))].sort((a,b)=>a.localeCompare(b,'ar'));
+  const areaDistrictOptions = [...new Set([...AL_BAYDA_DISTRICTS, ...areas.map(a => a.district)])].sort((a,b)=>a.localeCompare(b,'ar'));
   const areaLocalityOptions = areas.filter(a => a.district === district).map(a => a.locality).sort((a,b)=>a.localeCompare(b,'ar'));
   const returnSales = db.customerSales.filter(s => s.customerId === returnCustomerId).sort((a,b)=>b.createdAt-a.createdAt);
   const returnSale = returnSales.find(s => s.id === returnSaleId);
@@ -223,14 +224,14 @@ export const CustomerOperationsView: React.FC = () => {
     {section==='areas' && <div className="grid lg:grid-cols-[0.8fr_1.2fr] gap-4">
       <form onSubmit={submitArea} className={card+' space-y-3'}>
         <h3 className="font-black flex gap-2 items-center"><MapPin className="w-4 h-4 text-amber-500"/>إضافة منطقة أو قرية في البيضاء</h3>
-        <div className="rounded-xl bg-amber-50 dark:bg-amber-950/30 text-amber-900 dark:text-amber-200 p-3 text-xs">أدخل المديريات والقرى بحسب قائمتكم المحلية المعتمدة. لا نضع أسماء غير موثقة على أنها قائمة رسمية كاملة.</div>
+        <div className="rounded-xl bg-amber-50 dark:bg-amber-950/30 text-amber-900 dark:text-amber-200 p-3 text-xs">أضفت قائمة المديريات العشرين لمحافظة البيضاء. أضف الأحياء والقرى التابعة لكل مديرية حسب قائمتكم المحلية؛ فالمديريات لا تعني أن كل القرى مدخلة.</div>
         <input className={field} value={areaDistrict} onChange={e=>setAreaDistrict(e.target.value)} list="madhaq-districts" placeholder="اسم المديرية *" required/>
         <input className={field} value={areaLocality} onChange={e=>setAreaLocality(e.target.value)} placeholder="المنطقة / الحي / القرية *" required/>
         <button className="w-full rounded-xl bg-amber-500 text-stone-950 font-black py-3">حفظ المنطقة</button>
       </form>
       <div className={card+' space-y-3'}>
         <div className="flex justify-between items-center gap-2"><h3 className="font-black">دليل المناطق المسجلة</h3><span className="text-xs text-stone-500">{areas.length} منطقة / قرية</span></div>
-        {areas.length===0 ? <p className="text-sm text-stone-500 py-8 text-center">لم تُسجل مناطق بعد. أضف المديرية والمنطقة أو القرية من النموذج.</p> : <div className="space-y-3">{areaDistrictOptions.map(d=><div key={d} className="rounded-xl border border-stone-200 dark:border-stone-700 p-3"><strong>{d}</strong><div className="flex flex-wrap gap-2 mt-2">{areas.filter(a=>a.district===d).map(a=><span key={a.id} className="rounded-lg bg-stone-100 dark:bg-stone-800 px-2 py-1 text-xs">{a.locality}</span>)}</div></div>)}</div>}
+        {areas.length===0 ? <p className="text-sm text-stone-500 py-8 text-center">لم تُسجل مناطق بعد. أضف المديرية والمنطقة أو القرية من النموذج.</p> : <div className="space-y-3">{areaDistrictOptions.map(d=>{const localities=areas.filter(a=>a.district===d);return <div key={d} className="rounded-xl border border-stone-200 dark:border-stone-700 p-3"><div className="flex items-center justify-between gap-2"><strong>{d}</strong><span className="text-[10px] text-stone-500">{localities.length} منطقة مسجلة</span></div>{localities.length>0?<div className="flex flex-wrap gap-2 mt-2">{localities.map(a=><span key={a.id} className="rounded-lg bg-stone-100 dark:bg-stone-800 px-2 py-1 text-xs">{a.locality}</span>)}</div>:<p className="text-[11px] text-stone-400 mt-2">أضف الأحياء والقرى التابعة لهذه المديرية من النموذج.</p>}</div>})}</div>}
       </div>
     </div>}
     {section==='returns' && <div className="grid lg:grid-cols-2 gap-4">
