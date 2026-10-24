@@ -1,4 +1,5 @@
 import { RecipeLibraryItem } from '../data/recipeLibrary';
+import { RECIPE_OPERATION_META, DEFAULT_RECIPE_OPERATION_META } from '../data/recipeOperations';
 
 const STORAGE_KEY = 'madhaq_factory_db_v1';
 type Material = { id: string; name: string; unit: string; stockQty: number; averageCostPerUnitYER: number; active?: boolean };
@@ -27,13 +28,23 @@ function readDb(): any {
 }
 function findMaterial(name: string, materials: Material[]): Material | null {
   const target = normalize(name);
-  return materials.find((m) => normalize(m.name) === target) ?? materials.find((m) => normalize(m.name).includes(target) || target.includes(normalize(m.name))) ?? null;
+  const active = materials.filter((m) => m.active !== false);
+  return active.find((m) => normalize(m.name) === target) ?? active.find((m) => normalize(m.name).includes(target) || target.includes(normalize(m.name))) ?? null;
 }
+
+function scaledRecipeCosts(recipe: RecipeLibraryItem, batchGrams: number) {
+  const scale = batchGrams / recipe.baseYieldGrams;
+  const labor = Number(recipe.laborCostYER || 0) * scale;
+  const packaging = Number(recipe.packagingCostYER || 0) * scale;
+  const other = Number(recipe.otherCostYER || 0) * scale;
+  return { scale, labor, packaging, other, nonMaterial: labor + packaging + other };
+}
+
 export function planLibraryRecipe(recipe: RecipeLibraryItem, batchGrams: number) {
   if (!Number.isFinite(batchGrams) || batchGrams <= 0) throw new Error('كمية الإنتاج يجب أن تكون أكبر من صفر.');
   if (recipe.baseYieldGrams <= 0) throw new Error('الوصفة الأساسية غير صالحة.');
   const db = readDb();
-  const scale = batchGrams / recipe.baseYieldGrams;
+  const { scale, labor, packaging, other, nonMaterial } = scaledRecipeCosts(recipe, batchGrams);
   const rows: ProductionPlanRow[] = recipe.ingredients.map((ingredient) => {
     const material = findMaterial(ingredient.name, db.rawMaterials);
     const grams = ingredient.grams * scale;
@@ -45,8 +56,10 @@ export function planLibraryRecipe(recipe: RecipeLibraryItem, batchGrams: number)
   const missing = rows.filter((r) => !r.material || r.stockRequired === null);
   const insufficient = rows.filter((r) => r.material && r.stockRequired !== null && !r.enough);
   const totalMaterialCostYER = rows.reduce((s, r) => s + (r.costYER ?? 0), 0);
-  return { scale, rows, missing, insufficient, totalMaterialCostYER, ready: missing.length === 0 && insufficient.length === 0 };
+  const totalFullCostYER = totalMaterialCostYER + nonMaterial;
+  return { scale, rows, missing, insufficient, laborCostYER: labor, packagingCostYER: packaging, otherCostYER: other, totalMaterialCostYER, totalFullCostYER, ready: missing.length === 0 && insufficient.length === 0 };
 }
+
 export function produceLibraryRecipe(input: { recipe: RecipeLibraryItem; batchGrams: number; productId: string; plannedQty: number; producedQty: number; damagedQty?: number; note?: string }) {
   const { recipe, batchGrams, productId } = input;
   const plannedQty = Number(input.plannedQty);
@@ -71,8 +84,11 @@ export function produceLibraryRecipe(input: { recipe: RecipeLibraryItem; batchGr
       material.stockQty -= row.stockRequired!;
     }
     product.stockQty += producedQty;
-    product.factoryPriceYER = plan.totalMaterialCostYER / producedQty;
+    product.factoryPriceYER = plan.totalFullCostYER / producedQty;
     const now = Date.now();
+    const operationMeta = RECIPE_OPERATION_META[recipe.id] ?? DEFAULT_RECIPE_OPERATION_META;
+    const productionDate = new Date(now).toISOString().slice(0, 10);
+    const expiryDate = new Date(now + operationMeta.shelfLifeDays * 86400000).toISOString().slice(0, 10);
     db.productionBatches.push({
       id: `lib-batch-${now}-${Math.random().toString(36).slice(2, 8)}`,
       displayNumber: `BATCH-${String(db.productionBatches.length + 1001)}`,
@@ -80,17 +96,27 @@ export function produceLibraryRecipe(input: { recipe: RecipeLibraryItem; batchGr
       recipeName: recipe.name,
       productId: product.id,
       productName: product.name,
-      date: new Date(now).toISOString().slice(0, 10),
+      date: productionDate,
       createdAt: now,
       plannedQty,
       producedQty,
       damagedQty,
       totalMaterialCostYER: plan.totalMaterialCostYER,
-      unitCostYER: plan.totalMaterialCostYER / producedQty,
-      note: input.note || 'إنتاج من مكتبة الوصفات؛ راجع بطاقة الصلاحية قبل التوزيع.'
+      laborCostYER: plan.laborCostYER,
+      packagingCostYER: plan.packagingCostYER,
+      otherCostYER: plan.otherCostYER,
+      totalFullCostYER: plan.totalFullCostYER,
+      unitCostYER: plan.totalFullCostYER / producedQty,
+      shelfLifeDaysReference: operationMeta.shelfLifeDays,
+      shelfLifeValidated: false,
+      storage: operationMeta.storage,
+      packaging: operationMeta.packaging,
+      productionDate,
+      expiryDateReference: expiryDate,
+      note: input.note || 'إنتاج من مكتبة الوصفات؛ تاريخ الانتهاء مرجعي ويجب اعتماده بعد تحقق الصلاحية الفعلي.'
     });
     localStorage.setItem(STORAGE_KEY, JSON.stringify(db));
-    return { productName: product.name, totalMaterialCostYER: plan.totalMaterialCostYER, unitCostYER: plan.totalMaterialCostYER / producedQty, producedQty, damagedQty };
+    return { productName: product.name, totalMaterialCostYER: plan.totalMaterialCostYER, totalFullCostYER: plan.totalFullCostYER, unitCostYER: plan.totalFullCostYER / producedQty, producedQty, damagedQty, shelfLifeDaysReference: operationMeta.shelfLifeDays, expiryDateReference: expiryDate };
   } catch (error) {
     localStorage.setItem(STORAGE_KEY, snapshot);
     throw error;
