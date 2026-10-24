@@ -20,6 +20,9 @@ const photoSourceUrl = (url: string, sourceUrl?: string) => {
 };
 const DB_KEY = 'madhaq_factory_db_v1';
 const CUSTOM_PHOTOS_KEY = 'madhaq_recipe_custom_photos_v1';
+const MATERIAL_LINKS_KEY = 'madhaq_recipe_material_links_v1';
+type MaterialLinks = Record<string, string>;
+const readMaterialLinks = (): MaterialLinks => { try { const value = JSON.parse(localStorage.getItem(MATERIAL_LINKS_KEY) || '{}'); return value && typeof value === 'object' ? value : {}; } catch { return {}; } };
 const readCustomPhotos = (): Record<string,string> => { try { const value = JSON.parse(localStorage.getItem(CUSTOM_PHOTOS_KEY) || '{}'); return value && typeof value === 'object' ? value : {}; } catch { return {}; } };
 
 const getCostPerGram = (material: any): number | null => {
@@ -57,6 +60,7 @@ export const RecipeLibraryView: React.FC = () => {
   const [error, setError] = useState('');
   const [refresh, setRefresh] = useState(0);
   const [customPhotos, setCustomPhotos] = useState<Record<string,string>>(readCustomPhotos);
+  const [materialLinks, setMaterialLinks] = useState<MaterialLinks>(readMaterialLinks);
   const [imageUrlDraft, setImageUrlDraft] = useState('');
   const [imageMessage, setImageMessage] = useState('');
   const materials = useMemo(() => storage.getRawMaterials(), [refresh]);
@@ -70,12 +74,14 @@ export const RecipeLibraryView: React.FC = () => {
   const scale = selected ? Math.max(0, batchGrams) / selected.baseYieldGrams : 0;
   const costing = selected ? selected.ingredients.map((ingredient) => {
     const target = normalize(ingredient.name);
-    const material = materials.find((m: any) => normalize(String(m.name)) === target);
+    const linkedId = materialLinks[selected.id + '::' + ingredient.name];
+    const material = (linkedId ? materials.find((m: any) => m.id === linkedId && m.active !== false) : undefined) ?? materials.find((m: any) => normalize(String(m.name)) === target && m.active !== false);
     const unitCost = material ? getCostPerGram(material) : null;
     const grams = ingredient.grams * scale;
     return { ...ingredient, grams, material, cost: unitCost === null ? null : grams * unitCost };
   }) : [];
   const matchedCost = costing.reduce((sum, row) => sum + (row.cost ?? 0), 0);
+  const saveMaterialLink = (recipeId: string, ingredientName: string, materialId: string) => { const key = recipeId + '::' + ingredientName; const next = { ...materialLinks }; if (materialId) next[key] = materialId; else delete next[key]; try { localStorage.setItem(MATERIAL_LINKS_KEY, JSON.stringify(next)); setMaterialLinks(next); setRefresh(v => v + 1); setError(''); setMessage(''); } catch { setError('تعذر حفظ ربط المادة بالمخزون.'); } };
   const missingCount = costing.filter((row) => row.cost === null).length;
   const totalCost = matchedCost + (selected ? (selected.laborCostYER + selected.packagingCostYER + selected.otherCostYER) * scale : 0);
   const profit = sellingPrice - totalCost;
@@ -104,7 +110,7 @@ export const RecipeLibraryView: React.FC = () => {
     {selected&&meta&&<div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm p-3 sm:p-6 overflow-y-auto" onClick={()=>setSelected(null)}><div className="max-w-6xl mx-auto bg-white dark:bg-stone-950 rounded-3xl shadow-2xl overflow-hidden" onClick={e=>e.stopPropagation()}><div className="grid lg:grid-cols-5"><div className="lg:col-span-2 relative min-h-64 lg:min-h-full"><img src={recipeImage(selected.id,meta.imageUrl)} alt={meta.imageAlt} loading="lazy" onError={e=>{e.currentTarget.onerror=null;e.currentTarget.style.display='none';}} className="absolute inset-0 w-full h-full object-cover"/><div className="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent"/><div className="absolute bottom-5 right-5 left-5 text-white"><div className="text-xs font-bold text-amber-300">{selected.category}</div><h2 className="text-2xl font-black">{selected.name}</h2><div className="text-xs mt-2">الصلاحية المرجعية: {meta.shelfLifeDays} يوم</div><a href={photoSourceUrl(recipeImage(selected.id,meta.imageUrl),meta.imageSourceUrl)} target="_blank" rel="noreferrer" className="inline-block mt-2 text-[11px] font-bold text-white/80 underline underline-offset-4">فتح الصورة الأصلية ↗</a></div></div><div className="lg:col-span-3 p-5 sm:p-7 space-y-5"><div className="flex items-center justify-between gap-3"><div><h3 className="text-xl font-black">حاسبة التشغيل والإنتاج</h3><p className="text-xs text-stone-500">غيّر كمية الدفعة؛ النظام يعيد حساب المواد تلقائياً.</p></div><button onClick={()=>setSelected(null)} className="touch-target rounded-xl border px-3">إغلاق</button></div>
       <div className="grid grid-cols-2 gap-3"><label className="text-xs font-bold">كمية الدفعة (جم)<input className="input mt-2 w-full" type="number" min="1" value={batchGrams} onChange={e=>setBatchGrams(Math.max(1,Number(e.target.value)||1))}/></label><label className="text-xs font-bold">سعر البيع للدفعة<input className="input mt-2 w-full" type="number" min="0" value={sellingPrice} onChange={e=>setSellingPrice(Math.max(0,Number(e.target.value)||0))}/></label></div>
       <div className="grid grid-cols-3 gap-2"><div className="rounded-2xl bg-stone-100 dark:bg-stone-900 p-3"><span className="text-[10px] text-stone-500">التكبير</span><b className="block">×{scale.toFixed(2)}</b></div><div className="rounded-2xl bg-stone-100 dark:bg-stone-900 p-3"><span className="text-[10px] text-stone-500">التكلفة</span><b className="block">{money(totalCost)}</b></div><div className={`rounded-2xl p-3 ${profit>=0?'bg-emerald-50 dark:bg-emerald-950/30':'bg-red-50 dark:bg-red-950/30'}`}><span className="text-[10px] text-stone-500">الربح</span><b className="block">{money(profit)}</b></div></div>
-      <div className="rounded-2xl border overflow-hidden"><div className="px-4 py-3 font-black text-sm bg-stone-50 dark:bg-stone-900">المواد المطلوبة</div>{costing.map(row=><div key={row.name} className="flex items-center justify-between gap-3 px-4 py-3 border-t text-xs"><div><b>{row.name}</b>{!row.material&&<span className="mr-2 text-amber-600">غير مرتبطة</span>}</div><div className="text-left"><b>{Math.round(row.grams).toLocaleString()} جم</b><div className="text-[10px] text-stone-500">{row.cost===null?'أدخل المادة في المخزون':money(row.cost)}</div></div></div>)}</div>
+      <div className="rounded-2xl border overflow-hidden"><div className="px-4 py-3 font-black text-sm bg-stone-50 dark:bg-stone-900">المواد المطلوبة وربطها بالمخزون</div>{costing.map(row=><div key={row.name} className="grid grid-cols-1 sm:grid-cols-[1fr_1.2fr_auto] items-center gap-2 px-4 py-3 border-t text-xs"><div><b>{row.name}</b><div className="text-[10px] text-stone-500">{row.material ? "المخزون: " + row.material.name + " (" + row.material.unit + ")" : "لم تُربط بعد"}</div></div><select aria-label={"ربط " + row.name + " بمادة المخزون"} className="input w-full min-w-0" value={materialLinks[selected.id + "::" + row.name] || row.material?.id || ""} onChange={e=>saveMaterialLink(selected.id,row.name,e.target.value)}><option value="">اختر المادة المطابقة في المخزون</option>{materials.filter((m:any)=>m.active!==false).map((m:any)=><option key={m.id} value={m.id}>{m.name} — {m.unit}</option>)}</select><div className="sm:text-left"><b>{Math.round(row.grams).toLocaleString()} جم</b><div className="text-[10px] text-stone-500">{row.cost===null?"راجع الربط وسعر المادة ووحدتها":money(row.cost)}</div></div></div>)}</div>
 
       <section className="rounded-2xl border border-amber-200 dark:border-amber-900/50 p-4 space-y-3">
         <div className="flex items-center gap-2 font-black text-sm"><ImagePlus className="w-5 h-5 text-amber-600"/>صورة هذا الصنف</div>
