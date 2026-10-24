@@ -9,7 +9,8 @@
     "preview": "vite preview",
     "clean": "rm -rf dist server.js",
     "lint": "tsc --noEmit",
-    "verify:production": "tsx scripts/production-validation-smoke.ts"
+    "verify:production": "tsx scripts/production-validation-smoke.ts",
+    "verify:purchases": "tsx scripts/purchase-validation-smoke.ts"
   },
   "dependencies": {
     "@google/genai": "^2.4.0",
