@@ -1,16 +1,14 @@
 import React, { useRef, useState } from 'react';
 import { storage } from '../services/storage';
+import { validateDatabaseIntegrity } from '../services/dataIntegrity';
 import {
   Database,
   Download,
   Upload,
   RotateCcw,
-  ShieldCheck,
   CheckCircle2,
   AlertCircle,
-  Smartphone,
   X,
-  FileSpreadsheet,
   Lock
 } from 'lucide-react';
 
@@ -50,17 +48,43 @@ export const BackupSettingsModal: React.FC<BackupSettingsModalProps> = ({
     const file = e.target.files?.[0];
     if (!file) return;
 
+    if (file.size > 10 * 1024 * 1024) {
+      setErrorMessage('ملف النسخة الاحتياطية كبير جداً. الحد الأقصى 10 ميجابايت.');
+      e.target.value = '';
+      return;
+    }
+
     const reader = new FileReader();
     reader.onload = (event) => {
-      const content = event.target?.result as string;
-      const res = storage.importBackupJSON(content);
-      if (res.success) {
-        setSuccessMessage('تم استرجاع النسخة الاحتياطية بنجاح واستعادة جميع السجلات!');
-        onDataChanged();
-        setTimeout(() => setSuccessMessage(''), 4000);
-      } else {
-        setErrorMessage(res.error || 'فشل استرجاع الملف');
-        setTimeout(() => setErrorMessage(''), 5000);
+      try {
+        const content = event.target?.result as string;
+        const parsed = JSON.parse(content);
+        const audit = validateDatabaseIntegrity(parsed);
+
+        if (!audit.valid) {
+          const details = audit.issues
+            .filter(issue => issue.severity === 'ERROR')
+            .slice(0, 3)
+            .map(issue => `${issue.area}: ${issue.message}`)
+            .join(' | ');
+          setErrorMessage(`تم رفض النسخة الاحتياطية لوجود ${audit.errors} أخطاء في البيانات. ${details}`);
+          setTimeout(() => setErrorMessage(''), 8000);
+          return;
+        }
+
+        const res = storage.importBackupJSON(content);
+        if (res.success) {
+          const warningText = audit.warnings > 0 ? ` مع ${audit.warnings} تنبيهات غير حرجة.` : '';
+          setSuccessMessage(`تم فحص النسخة واسترجاعها بنجاح.${warningText}`);
+          onDataChanged();
+          setTimeout(() => setSuccessMessage(''), 5000);
+        } else {
+          setErrorMessage(res.error || 'فشل استرجاع الملف');
+          setTimeout(() => setErrorMessage(''), 5000);
+        }
+      } catch {
+        setErrorMessage('ملف النسخة الاحتياطية غير صالح أو تالف ولا يمكن قراءته.');
+        setTimeout(() => setErrorMessage(''), 6000);
       }
     };
     reader.readAsText(file);
@@ -85,10 +109,10 @@ export const BackupSettingsModal: React.FC<BackupSettingsModalProps> = ({
             </div>
             <div>
               <h3 className="text-lg font-bold text-amber-300">النسخ الاحتياطي وأمان البيانات</h3>
-              <p className="text-xs text-stone-400">حفظ سجلات معملك الخاصة بدون الحاجة للإنترنت</p>
+              <p className="text-xs text-stone-400">فحص النسخة قبل الاستعادة لحماية سجلات المعمل</p>
             </div>
           </div>
-          <button onClick={onClose} className="p-1.5 rounded-full hover:bg-stone-800 text-stone-400 hover:text-white">
+          <button onClick={onClose} className="touch-target p-1.5 rounded-full hover:bg-stone-800 text-stone-400 hover:text-white" aria-label="إغلاق">
             <X className="w-5 h-5" />
           </button>
         </div>
@@ -107,25 +131,22 @@ export const BackupSettingsModal: React.FC<BackupSettingsModalProps> = ({
           </div>
         )}
 
-        {/* Local Storage Privacy Assurance */}
         <div className="p-4 bg-amber-500/10 border border-amber-500/20 rounded-2xl space-y-2 text-xs">
           <div className="flex items-center gap-2 font-bold text-amber-300">
             <Lock className="w-4 h-4 text-amber-400" />
-            <span>خصوصية وسرية 100% لأعمالك:</span>
+            <span>حماية البيانات محلياً:</span>
           </div>
           <p className="text-stone-300 leading-relaxed text-[11px]">
-            هذا التطبيق يعمل كلياً على هاتفك الذكي (عبر التخزين الداخلي المحلي المباشر). لا يتم إرسال أو رفع أي بيانات مالية أو فواتير أو أسماء موزعين لأي خوادم خارجية على الإطلاق.
+            البيانات التشغيلية محفوظة محلياً على الجهاز. عند استعادة نسخة، يقوم النظام أولاً بفحص الهيكل والمراجع والكميات والمبالغ لمنع إدخال نسخة تالفة أو غير متوافقة.
           </p>
         </div>
 
-        {/* Backup Operations Buttons */}
         <div className="space-y-3">
           <div className="font-bold text-xs text-stone-300">العمليات على البيانات:</div>
 
-          {/* Download Backup */}
           <button
             onClick={handleDownloadBackup}
-            className="w-full flex items-center justify-between p-3.5 rounded-2xl bg-stone-800 hover:bg-stone-750 border border-stone-700 text-right transition active:scale-[0.99]"
+            className="w-full flex items-center justify-between p-3.5 rounded-2xl bg-stone-800 hover:bg-stone-750 border border-stone-700 text-right transition active:scale-[0.99] touch-target"
           >
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-xl bg-amber-500/20 text-amber-300 flex items-center justify-center shrink-0">
@@ -133,22 +154,15 @@ export const BackupSettingsModal: React.FC<BackupSettingsModalProps> = ({
               </div>
               <div>
                 <div className="font-bold text-sm text-stone-100">تنزيل نسخة احتياطية كاملة (.json)</div>
-                <div className="text-[11px] text-stone-400">احفظ ملف بجميع الموزعين، الفواتير، المخزون، والمشتريات على هاتفك</div>
+                <div className="text-[11px] text-stone-400">احفظ جميع الموزعين والفواتير والمخزون والمشتريات على هاتفك</div>
               </div>
             </div>
           </button>
 
-          {/* Restore Backup */}
-          <input
-            type="file"
-            accept=".json"
-            ref={fileInputRef}
-            onChange={handleFileSelect}
-            className="hidden"
-          />
+          <input type="file" accept=".json,application/json" ref={fileInputRef} onChange={handleFileSelect} className="hidden" />
           <button
             onClick={() => fileInputRef.current?.click()}
-            className="w-full flex items-center justify-between p-3.5 rounded-2xl bg-stone-800 hover:bg-stone-750 border border-stone-700 text-right transition active:scale-[0.99]"
+            className="w-full flex items-center justify-between p-3.5 rounded-2xl bg-stone-800 hover:bg-stone-750 border border-stone-700 text-right transition active:scale-[0.99] touch-target"
           >
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-xl bg-emerald-500/20 text-emerald-300 flex items-center justify-center shrink-0">
@@ -156,16 +170,15 @@ export const BackupSettingsModal: React.FC<BackupSettingsModalProps> = ({
               </div>
               <div>
                 <div className="font-bold text-sm text-stone-100">استرجاع نسخة احتياطية من ملف</div>
-                <div className="text-[11px] text-stone-400">اختر ملف نسخة سابقة (.json) لاستعادة سجلاتك عند تغيير الهاتف</div>
+                <div className="text-[11px] text-stone-400">سيتم فحص الملف قبل استبدال بيانات الجهاز</div>
               </div>
             </div>
           </button>
 
-          {/* Reset to Seed / Default */}
           {!confirmReset ? (
             <button
               onClick={() => setConfirmReset(true)}
-              className="w-full flex items-center justify-center gap-2 p-2.5 rounded-2xl border border-stone-800 text-stone-400 hover:text-stone-200 text-xs transition"
+              className="w-full flex items-center justify-center gap-2 p-3 rounded-2xl border border-stone-800 text-stone-400 hover:text-stone-200 text-xs transition touch-target"
             >
               <RotateCcw className="w-3.5 h-3.5" />
               <span>استعادة البيانات التجريبية الأولية</span>
@@ -174,30 +187,15 @@ export const BackupSettingsModal: React.FC<BackupSettingsModalProps> = ({
             <div className="p-3 bg-rose-950/40 border border-rose-500/40 rounded-2xl space-y-2 text-xs">
               <p className="text-rose-200 font-bold">هل أنت متأكد من استبدال البيانات الحالية بالبيانات التجريبية؟</p>
               <div className="flex gap-2">
-                <button
-                  onClick={() => setConfirmReset(false)}
-                  className="flex-1 py-1.5 rounded-xl border border-stone-700 text-xs"
-                >
-                  تراجع
-                </button>
-                <button
-                  onClick={handleResetData}
-                  className="flex-1 py-1.5 rounded-xl bg-rose-600 hover:bg-rose-500 font-bold text-xs"
-                >
-                  نعم، استعد الافتراضي
-                </button>
+                <button onClick={() => setConfirmReset(false)} className="flex-1 py-2 rounded-xl border border-stone-700 text-xs touch-target">تراجع</button>
+                <button onClick={handleResetData} className="flex-1 py-2 rounded-xl bg-rose-600 hover:bg-rose-500 font-bold text-xs touch-target">نعم، استعد الافتراضي</button>
               </div>
             </div>
           )}
         </div>
 
         <div className="pt-2 border-t border-stone-800">
-          <button
-            onClick={onClose}
-            className="w-full py-2.5 rounded-2xl bg-stone-800 hover:bg-stone-700 text-xs font-bold text-stone-200"
-          >
-            إغلاق
-          </button>
+          <button onClick={onClose} className="w-full py-3 rounded-2xl bg-stone-800 hover:bg-stone-700 text-xs font-bold text-stone-200 touch-target">إغلاق</button>
         </div>
       </div>
     </div>
