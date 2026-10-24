@@ -10,7 +10,7 @@ const card = 'rounded-2xl border border-stone-200 dark:border-stone-800 bg-white
 
 export const CustomerOperationsView: React.FC = () => {
   const [, setRevision] = useState(0);
-  const [section, setSection] = useState<'customers'|'sales'|'requests'|'returns'|'weekly'|'alerts'>('customers');
+  const [section, setSection] = useState<'customers'|'sales'|'requests'|'returns'|'weekly'|'alerts'|'areas'>('customers');
   const [search, setSearch] = useState('');
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
@@ -25,6 +25,8 @@ export const CustomerOperationsView: React.FC = () => {
   const [address, setAddress] = useState('');
   const [openingDebt, setOpeningDebt] = useState('0');
   const [notes, setNotes] = useState('');
+  const [areaDistrict, setAreaDistrict] = useState('');
+  const [areaLocality, setAreaLocality] = useState('');
   const [saleCustomerId, setSaleCustomerId] = useState('');
   const [saleDistributorId, setSaleDistributorId] = useState('');
   const [saleDate, setSaleDate] = useState(new Date().toISOString().slice(0,10));
@@ -57,6 +59,9 @@ export const CustomerOperationsView: React.FC = () => {
   const customers = db.customers.filter(c => c.active);
   const distributors = db.distributors.filter(d => d.active);
   const products = db.products.filter(p => p.active);
+  const areas = db.areas.filter(a => a.active && a.governorate === 'البيضاء');
+  const areaDistrictOptions = [...new Set(areas.map(a => a.district))].sort((a,b)=>a.localeCompare(b,'ar'));
+  const areaLocalityOptions = areas.filter(a => a.district === district).map(a => a.locality).sort((a,b)=>a.localeCompare(b,'ar'));
   const returnSales = db.customerSales.filter(s => s.customerId === returnCustomerId).sort((a,b)=>b.createdAt-a.createdAt);
   const returnSale = returnSales.find(s => s.id === returnSaleId);
   const returnProductOptions = returnSale
@@ -72,6 +77,13 @@ export const CustomerOperationsView: React.FC = () => {
   },0);
 
   const resetNotice = () => { setMessage(''); setError(''); };
+  const submitArea = (e: React.FormEvent) => {
+    e.preventDefault(); resetNotice();
+    if (!areaDistrict.trim() || !areaLocality.trim()) { setError('أدخل اسم المديرية والمنطقة أو القرية.'); return; }
+    const saved = storage.saveArea({ governorate: 'البيضاء', district: areaDistrict.trim(), locality: areaLocality.trim(), active: true });
+    setMessage('تم حفظ المنطقة ضمن دليل محافظة البيضاء.');
+    setAreaLocality('');
+  };
   const submitCustomer = (e: React.FormEvent) => {
     e.preventDefault(); resetNotice();
     const result = storage.saveCustomer({
@@ -149,15 +161,15 @@ export const CustomerOperationsView: React.FC = () => {
     </header>
     {(message || error) && <div className={`rounded-xl px-4 py-3 text-sm flex gap-2 items-center ${error?'bg-red-50 text-red-700 border border-red-200':'bg-emerald-50 text-emerald-800 border border-emerald-200'}`}>{error?<AlertCircle className="w-4 h-4"/>:<CheckCircle2 className="w-4 h-4"/>}{error||message}</div>}
     <div className="flex gap-2 overflow-x-auto">
-      {([{id:'customers',label:'البقالات والعملاء',icon:Store},{id:'sales',label:'بيع وتحصيل',icon:Wallet},{id:'requests',label:'طلبات الموزعين',icon:ClipboardList},{id:'returns',label:'التالف والمرتجعات',icon:ReceiptText},{id:'weekly',label:'الإقفال الأسبوعي',icon:CheckCircle2},{id:'alerts',label:'التنبيهات',icon:AlertCircle}] as const).map(t=><button key={t.id} onClick={()=>{setSection(t.id);resetNotice();}} className={`shrink-0 rounded-xl px-4 py-3 text-sm font-bold flex gap-2 items-center border ${section===t.id?'bg-amber-500 text-stone-950 border-amber-500':'bg-white dark:bg-stone-900 border-stone-200 dark:border-stone-700'}`}><t.icon className="w-4 h-4"/>{t.label}</button>)}
+      {([{id:'customers',label:'البقالات والعملاء',icon:Store},{id:'sales',label:'بيع وتحصيل',icon:Wallet},{id:'requests',label:'طلبات الموزعين',icon:ClipboardList},{id:'returns',label:'التالف والمرتجعات',icon:ReceiptText},{id:'weekly',label:'الإقفال الأسبوعي',icon:CheckCircle2},{id:'alerts',label:'التنبيهات',icon:AlertCircle},{id:'areas',label:'مناطق البيضاء',icon:MapPin}] as const).map(t=><button key={t.id} onClick={()=>{setSection(t.id);resetNotice();}} className={`shrink-0 rounded-xl px-4 py-3 text-sm font-bold flex gap-2 items-center border ${section===t.id?'bg-amber-500 text-stone-950 border-amber-500':'bg-white dark:bg-stone-900 border-stone-200 dark:border-stone-700'}`}><t.icon className="w-4 h-4"/>{t.label}</button>)}
     </div>
     {section==='customers' && <div className="grid lg:grid-cols-[0.9fr_1.1fr] gap-4">
       <form onSubmit={submitCustomer} className={card+' space-y-3'}>
         <h3 className="font-black flex gap-2 items-center"><Plus className="w-4 h-4 text-amber-500"/>إضافة بقالة جديدة</h3>
         <input className={field} placeholder="اسم البقالة *" value={customerName} onChange={e=>setCustomerName(e.target.value)} required/>
         <div className="grid grid-cols-2 gap-2"><input className={field} placeholder="اسم المسؤول" value={contactName} onChange={e=>setContactName(e.target.value)}/><input className={field} placeholder="رقم الهاتف" value={phone} onChange={e=>setPhone(e.target.value)}/></div>
-        <div className="grid grid-cols-2 gap-2"><input className={field} value={governorate} onChange={e=>setGovernorate(e.target.value)} placeholder="المحافظة" required/><input className={field} value={district} onChange={e=>setDistrict(e.target.value)} placeholder="المديرية *" required/></div>
-        <input className={field} value={locality} onChange={e=>setLocality(e.target.value)} placeholder="المنطقة / الحي / القرية *" required/>
+        <div className="grid grid-cols-2 gap-2"><input className={field} value={governorate} onChange={e=>setGovernorate(e.target.value)} placeholder="المحافظة" required/><input className={field} list="madhaq-districts" value={district} onChange={e=>setDistrict(e.target.value)} placeholder="المديرية *" required/><datalist id="madhaq-districts">{areaDistrictOptions.map(d=><option key={d} value={d}/>)}</datalist></div>
+        <input className={field} list="madhaq-localities" value={locality} onChange={e=>setLocality(e.target.value)} placeholder="المنطقة / الحي / القرية *" required/><datalist id="madhaq-localities">{areaLocalityOptions.map(l=><option key={l} value={l}/>)}</datalist>
         <input className={field} value={address} onChange={e=>setAddress(e.target.value)} placeholder="العنوان التفصيلي أو علامة مميزة"/>
         <select className={field} value={distributorId} onChange={e=>setDistributorId(e.target.value)} required><option value="">اختر الموزع المسؤول *</option>{distributors.map(d=><option key={d.id} value={d.id}>{d.name}</option>)}</select>
         <input className={field} type="number" min="0" value={openingDebt} onChange={e=>setOpeningDebt(e.target.value)} placeholder="الدين الافتتاحي إن وجد"/>
@@ -208,6 +220,19 @@ export const CustomerOperationsView: React.FC = () => {
       </div>
     </div>}
 
+    {section==='areas' && <div className="grid lg:grid-cols-[0.8fr_1.2fr] gap-4">
+      <form onSubmit={submitArea} className={card+' space-y-3'}>
+        <h3 className="font-black flex gap-2 items-center"><MapPin className="w-4 h-4 text-amber-500"/>إضافة منطقة أو قرية في البيضاء</h3>
+        <div className="rounded-xl bg-amber-50 dark:bg-amber-950/30 text-amber-900 dark:text-amber-200 p-3 text-xs">أدخل المديريات والقرى بحسب قائمتكم المحلية المعتمدة. لا نضع أسماء غير موثقة على أنها قائمة رسمية كاملة.</div>
+        <input className={field} value={areaDistrict} onChange={e=>setAreaDistrict(e.target.value)} list="madhaq-districts" placeholder="اسم المديرية *" required/>
+        <input className={field} value={areaLocality} onChange={e=>setAreaLocality(e.target.value)} placeholder="المنطقة / الحي / القرية *" required/>
+        <button className="w-full rounded-xl bg-amber-500 text-stone-950 font-black py-3">حفظ المنطقة</button>
+      </form>
+      <div className={card+' space-y-3'}>
+        <div className="flex justify-between items-center gap-2"><h3 className="font-black">دليل المناطق المسجلة</h3><span className="text-xs text-stone-500">{areas.length} منطقة / قرية</span></div>
+        {areas.length===0 ? <p className="text-sm text-stone-500 py-8 text-center">لم تُسجل مناطق بعد. أضف المديرية والمنطقة أو القرية من النموذج.</p> : <div className="space-y-3">{areaDistrictOptions.map(d=><div key={d} className="rounded-xl border border-stone-200 dark:border-stone-700 p-3"><strong>{d}</strong><div className="flex flex-wrap gap-2 mt-2">{areas.filter(a=>a.district===d).map(a=><span key={a.id} className="rounded-lg bg-stone-100 dark:bg-stone-800 px-2 py-1 text-xs">{a.locality}</span>)}</div></div>)}</div>}
+      </div>
+    </div>}
     {section==='returns' && <div className="grid lg:grid-cols-2 gap-4">
       <form onSubmit={submitCustomerReturn} className={card+' space-y-3'}>
         <h3 className="font-black">تسجيل تالف أو مرتجع أو استبدال</h3>
