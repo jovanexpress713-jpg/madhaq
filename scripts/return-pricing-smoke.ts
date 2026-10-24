@@ -2,7 +2,12 @@ import { calculateHistoricalReturnPricing } from '../src/services/returnPricing'
 import { DatabaseSchema } from '../src/types';
 
 const db: DatabaseSchema = {
-  version: 1,
+  version: 2,
+  areas: [],
+  customers: [],
+  customerSales: [],
+  customerPayments: [],
+  supplyRequests: [],
   distributors: [{ id: 'd1', name: 'اختبار', phone: '', address: '', debtLimitYER: 0, commissionType: 'PER_PIECE', commissionValue: 0, openingDebtYER: 0, active: true, createdAt: 1 }],
   products: [{ id: 'p1', name: 'صنف اختبار', category: 'اختبار', unit: 'حبة', factoryPriceYER: 0, distributorPriceYER: 9999, stockQty: 0, minimumQty: 0, active: true, createdAt: 1 }],
   rawMaterials: [],
