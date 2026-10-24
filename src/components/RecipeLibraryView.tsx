@@ -61,7 +61,7 @@ export const RecipeLibraryView: React.FC = () => {
   const [imageMessage, setImageMessage] = useState('');
   const materials = useMemo(() => storage.getRawMaterials(), [refresh]);
   const products = useMemo(() => readProducts(), [refresh]);
-  const categories = ['الكل','حلويات','معجنات','مخبوزات','كيك','مشروبات'];
+  const categories = ['الكل','حلويات يمنية','حلويات','معجنات','مخبوزات','كيك','مشروبات'];
   const items = useMemo(() => { const q = normalize(query); return RECIPE_LIBRARY.filter((r) => (category === 'الكل' || r.category === category) && (!q || normalize(r.name).includes(q) || r.ingredients.some((ingredient) => normalize(ingredient.name).includes(q)))); }, [query, category]);
   const meta = selected ? (RECIPE_OPERATION_META[selected.id] ?? DEFAULT_RECIPE_OPERATION_META) : null;
   const recipeImage = (id: string, defaultUrl: string) => customPhotos[id] || defaultUrl;

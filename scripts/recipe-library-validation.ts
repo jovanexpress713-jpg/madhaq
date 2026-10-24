@@ -42,6 +42,7 @@ if (!RECIPE_LIBRARY.some((r) => r.id === 'bint-al-sahn') ||
     !RECIPE_LIBRARY.some((r) => r.id === 'halawa-lahji') ||
     !RECIPE_LIBRARY.some((r) => r.id === 'harissa-yemeni') ||
     !RECIPE_LIBRARY.some((r) => r.id === 'mafhoosa-yemeni') ||
+    !RECIPE_LIBRARY.some((r) => r.id === 'zalabiya-yemeni') ||
     !RECIPE_LIBRARY.some((r) => r.id === 'kunafa-dough') ||
     !RECIPE_LIBRARY.some((r) => r.id === 'baklava-sheets') ||
     !RECIPE_LIBRARY.some((r) => r.id === 'cream-filling') ||
