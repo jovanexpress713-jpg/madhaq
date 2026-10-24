@@ -116,6 +116,7 @@ export const ExpensesView: React.FC = () => {
             <div>• مشتريات نقدية: {formatYER(cashSummary.purCash)}</div>
             <div>• سداد موردين نقدًا: {formatYER(cashSummary.suppCash)}</div>
             <div>• مصروفات المعمل: {formatYER(cashSummary.expCash)}</div>
+            <div>• مرتجعات نقدية للموزعين: {formatYER(cashSummary.returnCash)}</div>
           </div>
         </div>
 
