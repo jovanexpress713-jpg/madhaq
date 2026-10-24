@@ -1,17 +1,18 @@
 import { storage } from './storage';
 import { calculateHistoricalReturnPricing } from './returnPricing';
 import { validateReturn } from './returnValidation';
+import { withTransactionRollback } from './transactionGuard';
 
 let installed = false;
 
-/** حماية المرتجعات والتحصيلات مع تثبيت سعر المرتجع من التوزيعات التاريخية. */
+/** حماية المرتجعات والتحصيلات مع تثبيت سعر المرتجع التاريخي وحماية المعاملة. */
 export function installReturnGuard(): void {
   if (installed) return;
   const service = storage as typeof storage & { __madhaqReturnGuardInstalled?: boolean };
   if (service.__madhaqReturnGuardInstalled) { installed = true; return; }
 
   const originalReturn = storage.createReturn.bind(storage);
-  storage.createReturn = ((data) => {
+  storage.createReturn = ((data) => withTransactionRollback(() => {
     const validation = validateReturn(storage.getDatabase(), {
       distributorId: data.distributorId,
       items: data.items,
@@ -46,14 +47,12 @@ export function installReturnGuard(): void {
       };
     });
     entry.totalValueYER = entry.items.reduce((sum, item) => sum + item.totalYER, 0);
-
-    // تثبيت التصحيح فوراً في نفس قاعدة البيانات المحلية.
     localStorage.setItem('madhaq_factory_db_v1', JSON.stringify(storage.getDatabase()));
     return { success: true, returnEntry: entry };
-  }) as typeof storage.createReturn;
+  })) as typeof storage.createReturn;
 
   const originalCollection = storage.createCollection.bind(storage);
-  storage.createCollection = ((data) => {
+  storage.createCollection = ((data) => withTransactionRollback(() => {
     const dist = storage.getDistributorById(data.distributorId);
     if (!dist) return { success: false, error: 'الموزع غير موجود.' };
     if (!Number.isFinite(data.amountYER) || data.amountYER <= 0) {
@@ -64,7 +63,7 @@ export function installReturnGuard(): void {
       return { success: false, error: 'مبلغ التحصيل يتجاوز الدين المستحق على الموزع.' };
     }
     return originalCollection(data);
-  }) as typeof storage.createCollection;
+  })) as typeof storage.createCollection;
 
   service.__madhaqReturnGuardInstalled = true;
   installed = true;
