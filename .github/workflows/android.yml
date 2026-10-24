@@ -63,6 +63,7 @@ jobs:
           bun run verify:returns
           bun run verify:supplier-payments
           bun run verify:recipes
+          bun run verify:recipe-production
 
       - name: Build web application
         run: bun run build
