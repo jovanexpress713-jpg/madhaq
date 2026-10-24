@@ -33,6 +33,9 @@ jobs:
       - name: Production business-rule validation
         run: bun run verify:production
 
+      - name: Distribution and return workflow validation
+        run: bun run verify:distribution-returns
+
       - name: Purchase business-rule validation
         run: bun run verify:purchases
 
