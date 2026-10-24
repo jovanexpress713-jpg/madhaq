@@ -1149,7 +1149,7 @@ class StorageService {
     // Legacy payments created before invoice allocation existed are applied to opening debt first,
     // then FIFO to invoices, preserving compatibility with older saved data.
     const legacyPayments = this.db.customerPayments.filter(p => p.customerId === customerId &&
-      !p.allocations && p.openingBalanceAppliedYER === undefined).reduce((n,p)=>n+p.amountYER,0);
+      !p.allocations && p.openingDebtAppliedYER === undefined).reduce((n,p)=>n+p.amountYER,0);
     const openingDebt = this.getCustomerById(customerId)?.openingDebtYER || 0;
     let legacyInvoicePayments = Math.max(0, legacyPayments-openingDebt);
     for (const row of balances) {
@@ -1206,15 +1206,15 @@ class StorageService {
       amountToAllocate -= amount;
     }
     const outstandingOpeningBalance = Math.max(0, balance-invoiceBalances.reduce((n,x)=>n+x.balanceYER,0));
-    const openingBalanceAppliedYER = Math.min(amountToAllocate, outstandingOpeningBalance);
-    amountToAllocate -= openingBalanceAppliedYER;
+    const openingDebtAppliedYER = Math.min(amountToAllocate, outstandingOpeningBalance);
+    amountToAllocate -= openingDebtAppliedYER;
     if (amountToAllocate > 0.001) return { success:false, error:'تعذر توزيع مبلغ السداد على أرصدة العميل؛ راجع كشف الحساب قبل المتابعة' };
 
     const payment: CustomerPayment = {
       id: 'cpay-' + Date.now(), displayNumber: 'CP-' + (this.db.customerPayments.length + 1001),
       customerId: customer.id, customerName: customer.name, distributorId: data.distributorId,
       date: data.date, createdAt: Date.now(), amountYER: data.amountYER, method: data.method,
-      allocations, openingBalanceAppliedYER, note: data.note
+      allocations, openingDebtAppliedYER, note: data.note
     };
     this.db.customerPayments.unshift(payment);
     this.commit();
