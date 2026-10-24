@@ -2,7 +2,12 @@ import { validatePurchase } from '../src/services/purchaseValidation';
 import type { DatabaseSchema } from '../src/types';
 
 const db = {
-  version: 1,
+  version: 2,
+  areas: [],
+  customers: [],
+  customerSales: [],
+  customerPayments: [],
+  supplyRequests: [],
   distributors: [],
   products: [],
   rawMaterials: [{ id: 'r1', name: 'خام', unit: 'كيلو', stockQty: 5, minimumQty: 1, averageCostPerUnitYER: 100, active: true, createdAt: 1 }],
