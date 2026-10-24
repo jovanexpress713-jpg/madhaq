@@ -59,6 +59,9 @@ export const CustomerOperationsView: React.FC = () => {
   const products = db.products.filter(p => p.active);
   const returnSales = db.customerSales.filter(s => s.customerId === returnCustomerId).sort((a,b)=>b.createdAt-a.createdAt);
   const returnSale = returnSales.find(s => s.id === returnSaleId);
+  const returnProductOptions = returnSale
+    ? returnSale.items.flatMap(i => { const product = products.find(p => p.id === i.productId); return product ? [{ product, price: i.unitPriceYER }] : []; })
+    : products.map(product => ({ product, price: product.distributorPriceYER }));
   const filteredCustomers = useMemo(() => customers.filter(c =>
     [c.name,c.phone,c.district,c.locality,c.address].some(v => (v || '').toLowerCase().includes(search.toLowerCase()))
   ), [customers,search]);
@@ -210,7 +213,7 @@ export const CustomerOperationsView: React.FC = () => {
         <select className={field} value={returnCustomerId} onChange={e=>{setReturnCustomerId(e.target.value);setReturnSaleId('');setReturnProductId('');const c=storage.getCustomerById(e.target.value);if(c)setReturnDistributorId(c.assignedDistributorId);}} required><option value="">اختر البقالة</option>{customers.map(c=><option key={c.id} value={c.id}>{c.name}</option>)}</select>
         <select className={field} value={returnDistributorId} onChange={e=>setReturnDistributorId(e.target.value)} required><option value="">الموزع المسؤول</option>{distributors.map(d=><option key={d.id} value={d.id}>{d.name}</option>)}</select>
         <select className={field} value={returnSaleId} onChange={e=>{setReturnSaleId(e.target.value);setReturnProductId('');}}><option value="">الفاتورة الأصلية (اختياري — لحساب السعر والكمية بدقة)</option>{returnSales.map(s=><option key={s.id} value={s.id}>{s.displayNumber} · {s.date} · {formatYER(s.totalYER)}</option>)}</select>
-        <select className={field} value={returnProductId} onChange={e=>setReturnProductId(e.target.value)} required><option value="">الصنف</option>{(returnSale ? returnSale.items.map(i=>products.find(p=>p.id===i.productId)).filter((p):p is typeof products[number]=>Boolean(p)) : products).map(p=><option key={p.id} value={p.id}>{p.name} — {formatYER(p.distributorPriceYER)}</option>)}</select>
+        <select className={field} value={returnProductId} onChange={e=>setReturnProductId(e.target.value)} required><option value="">الصنف</option>{returnProductOptions.map(({product:p,price})=><option key={p.id} value={p.id}>{p.name} — {formatYER(price)}</option>)}</select>
         {returnSale && <p className="text-xs text-stone-500">الفاتورة المحددة: {returnSale.displayNumber} — سيستخدم النظام سعر الصنف المثبت في الفاتورة ويمنع تجاوز الكمية المباعة منها.</p>}
         <div className="grid grid-cols-2 gap-2"><input className={field} type="number" min="1" value={returnQuantity} onChange={e=>setReturnQuantity(e.target.value)} required/><select className={field} value={returnDisposition} onChange={e=>setReturnDisposition(e.target.value as 'DAMAGED'|'RETURNED'|'EXCHANGE')}><option value="DAMAGED">تالف — لا يعود للمخزون</option><option value="RETURNED">مرتجع صالح للفحص</option><option value="EXCHANGE">استبدال</option></select></div>
         <input className={field} value={returnReason} onChange={e=>setReturnReason(e.target.value)} placeholder="سبب الحركة" required/>
