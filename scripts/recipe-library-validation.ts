@@ -23,6 +23,7 @@ for (const recipe of RECIPE_LIBRARY) {
   const meta = RECIPE_OPERATION_META[recipe.id] ?? DEFAULT_RECIPE_OPERATION_META;
   if (!meta.imageUrl || !/^https:\/\//.test(meta.imageUrl)) failures.push(`صورة مرجعية غير صالحة: ${recipe.name}`);
   if (!meta.imageAlt?.trim()) failures.push(`وصف الصورة فارغ: ${recipe.name}`);
+  if (meta.imageSourceUrl && !meta.imageSourceUrl.startsWith('https://')) failures.push(`رابط مصدر الصورة غير صالح: ${recipe.name}`);
   if (photoUrls.has(meta.imageUrl)) failures.push(`الصورة مستخدمة لوصفة أخرى وليست فريدة: ${recipe.name}`);
   photoUrls.add(meta.imageUrl);
   if (!Array.isArray(RECIPE_PREPARATION_STEPS[recipe.id]) || RECIPE_PREPARATION_STEPS[recipe.id].length < 4) failures.push(`طريقة التحضير غير مكتملة: ${recipe.name}`);
@@ -33,7 +34,15 @@ for (const recipe of RECIPE_LIBRARY) {
   }
 }
 
-if (!RECIPE_LIBRARY.some((r) => r.id === 'kunafa-dough') ||
+if (!RECIPE_LIBRARY.some((r) => r.id === 'bint-al-sahn') ||
+    !RECIPE_LIBRARY.some((r) => r.id === 'sabayah-yemeni') ||
+    !RECIPE_LIBRARY.some((r) => r.id === 'rawani-yemeni') ||
+    !RECIPE_LIBRARY.some((r) => r.id === 'arika-yemeni') ||
+    !RECIPE_LIBRARY.some((r) => r.id === 'maasoub-yemeni') ||
+    !RECIPE_LIBRARY.some((r) => r.id === 'halawa-lahji') ||
+    !RECIPE_LIBRARY.some((r) => r.id === 'harissa-yemeni') ||
+    !RECIPE_LIBRARY.some((r) => r.id === 'mafhoosa-yemeni') ||
+    !RECIPE_LIBRARY.some((r) => r.id === 'kunafa-dough') ||
     !RECIPE_LIBRARY.some((r) => r.id === 'baklava-sheets') ||
     !RECIPE_LIBRARY.some((r) => r.id === 'cream-filling') ||
     !RECIPE_LIBRARY.some((r) => r.id === 'sugar-syrup')) {
