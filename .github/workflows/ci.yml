@@ -68,5 +68,8 @@ jobs:
       - name: Same-tab recovery backup validation
         run: bun run verify:recovery-backup
 
+      - name: Recovery commit bridge validation
+        run: bun run verify:recovery-bridge
+
       - name: Production build
         run: bun run build
