@@ -21,7 +21,8 @@
     "verify:supply-production": "tsx scripts/supply-production-workflow-smoke.ts",
     "verify:role-workflow": "tsx scripts/role-workflow-smoke.ts",
     "verify:number-sequences": "tsx scripts/number-sequence-integrity-smoke.ts",
-    "verify:recovery-backup": "tsx scripts/recovery-backup-same-tab-smoke.ts"
+    "verify:recovery-backup": "tsx scripts/recovery-backup-same-tab-smoke.ts",
+    "verify:recovery-bridge": "tsx scripts/recovery-commit-bridge-smoke.ts"
   },
   "dependencies": {
     "@google/genai": "^2.4.0",
@@ -31,7 +32,7 @@
     "react": "^19.0.1",
     "react-dom": "^19.0.1",
     "vite": "^8.3.0",
-    "express": "^4.21.2",
+    "express": "^4.21.0",
     "dotenv": "^17.2.3",
     "motion": "^12.23.24"
   },
