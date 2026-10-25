@@ -1,13 +1,13 @@
 import assert from 'node:assert/strict';
 
-const listeners = new Set<() => void>();
+const commitListeners = new Set<() => void>();
+let recoveryEvents = 0;
+
 Object.defineProperty(globalThis, 'window', {
   configurable: true,
   value: {
     dispatchEvent: (event: Event) => {
-      if (event.type === 'madhaq:database-committed') {
-        listeners.forEach(listener => listener());
-      }
+      if (event.type === 'madhaq:database-committed') recoveryEvents += 1;
       return true;
     },
   },
@@ -16,20 +16,12 @@ Object.defineProperty(globalThis, 'window', {
 const { installRecoveryCommitBridge } = await import('../src/services/recoveryCommitBridge');
 
 const unsubscribe = installRecoveryCommitBridge((listener) => {
-  listeners.add(listener);
-  return () => listeners.delete(listener);
+  commitListeners.add(listener);
+  return () => commitListeners.delete(listener);
 });
 
-let commitsObserved = 0;
-const stopObserver = (() => {
-  const listener = () => { commitsObserved += 1; };
-  listeners.add(listener);
-  return () => listeners.delete(listener);
-})();
+commitListeners.forEach(listener => listener());
+assert.equal(recoveryEvents, 1, 'A storage commit must emit a recovery notification');
 
-listeners.forEach(listener => listener());
-assert.equal(commitsObserved, 1, 'A storage commit must emit a recovery notification');
-
-stopObserver();
 unsubscribe();
 console.log('Recovery commit bridge validation passed.');
