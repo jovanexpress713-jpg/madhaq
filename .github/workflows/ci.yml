@@ -71,5 +71,8 @@ jobs:
       - name: Recovery commit bridge validation
         run: bun run verify:recovery-bridge
 
+      - name: Cloud sync contract validation
+        run: bun run verify:cloud-sync
+
       - name: Production build
         run: bun run build
