@@ -35,7 +35,7 @@ function writeSnapshots(snapshots: RecoverySnapshot[]): void {
   }
 }
 
-function createSnapshot(reason: RecoverySnapshot['reason']): void {
+function createSnapshot(reason: RecoverySnapshot['reason'], force = false): void {
   const database = localStorage.getItem(DATABASE_KEY);
   if (!database) return;
 
@@ -44,7 +44,7 @@ function createSnapshot(reason: RecoverySnapshot['reason']): void {
     .filter(snapshot => now - snapshot.createdAt <= RETENTION_MS);
 
   const latest = snapshots[0];
-  if (latest && now - latest.createdAt < SNAPSHOT_INTERVAL_MS) return;
+  if (!force && latest && now - latest.createdAt < SNAPSHOT_INTERVAL_MS) return;
 
   snapshots.unshift({ createdAt: now, reason, database });
   writeSnapshots(snapshots.slice(0, MAX_SNAPSHOTS));
@@ -67,7 +67,7 @@ export function installRecoveryBackup(): () => void {
   // The browser's native `storage` event does not fire in the same tab that
   // performed the write. The application therefore emits this explicit event
   // after each successful database commit so same-tab changes are observable.
-  const handleDatabaseCommit = () => createSnapshot('change');
+  const handleDatabaseCommit = () => createSnapshot('change', true);
 
   window.addEventListener('storage', handleStorage);
   window.addEventListener(RECOVERY_CHANGE_EVENT, handleDatabaseCommit);
