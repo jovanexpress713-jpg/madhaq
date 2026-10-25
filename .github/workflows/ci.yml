@@ -65,5 +65,8 @@ jobs:
       - name: Document sequence integrity validation
         run: bun run verify:number-sequences
 
+      - name: Same-tab recovery backup validation
+        run: bun run verify:recovery-backup
+
       - name: Production build
         run: bun run build
