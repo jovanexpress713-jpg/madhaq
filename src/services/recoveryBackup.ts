@@ -1,5 +1,6 @@
 const DATABASE_KEY = 'madhaq_factory_db_v1';
 const RECOVERY_KEY = 'madhaq_recovery_snapshots_v1';
+const RECOVERY_CHANGE_EVENT = 'madhaq:database-committed';
 const MAX_SNAPSHOTS = 8;
 const SNAPSHOT_INTERVAL_MS = 6 * 60 * 60 * 1000;
 const RETENTION_MS = 2 * 24 * 60 * 60 * 1000;
@@ -62,11 +63,19 @@ export function installRecoveryBackup(): () => void {
   const handleStorage = (event: StorageEvent) => {
     if (event.key === DATABASE_KEY) createSnapshot('change');
   };
+
+  // The browser's native `storage` event does not fire in the same tab that
+  // performed the write. The application therefore emits this explicit event
+  // after each successful database commit so same-tab changes are observable.
+  const handleDatabaseCommit = () => createSnapshot('change');
+
   window.addEventListener('storage', handleStorage);
+  window.addEventListener(RECOVERY_CHANGE_EVENT, handleDatabaseCommit);
 
   return () => {
     window.clearInterval(interval);
     window.removeEventListener('storage', handleStorage);
+    window.removeEventListener(RECOVERY_CHANGE_EVENT, handleDatabaseCommit);
   };
 }
 
