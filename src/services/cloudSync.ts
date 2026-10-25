@@ -2,6 +2,8 @@ import type { DatabaseSchema } from '../types';
 
 export const CLOUD_SYNC_SCHEMA_VERSION = 1;
 const SESSION_KEY = 'madhaq_cloud_session_v1';
+const WORKSPACE_KEY = 'madhaq_active_workspace_v1';
+const DEFAULT_WORKSPACE_NAME = 'MADHAQ Dessert Factory';
 
 export interface CloudSession {
   accessToken: string;
@@ -46,19 +48,40 @@ export function resolveCloudSyncAction(input: {
 function config() {
   const url = String(import.meta.env.VITE_SUPABASE_URL || '').replace(/\/$/, '');
   const key = String(import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY || '');
-  const workspaceId = String(import.meta.env.VITE_MADHAQ_WORKSPACE_ID || '');
+  const workspaceId = String(import.meta.env.VITE_MADHAQ_WORKSPACE_ID || '').trim() || readWorkspaceId() || '';
   return { url, key, workspaceId };
 }
 
 export function isCloudConfigured(): boolean {
-  const { url, key, workspaceId } = config();
-  return Boolean(url && key && workspaceId);
+  const { url, key } = config();
+  return Boolean(url && key);
+}
+
+export function getActiveWorkspaceId(): string | null {
+  try {
+    return localStorage.getItem(WORKSPACE_KEY) || null;
+  } catch {
+    return null;
+  }
+}
+
+export function setActiveWorkspaceId(workspaceId: string): void {
+  const value = workspaceId.trim();
+  if (!value) return;
+  try { localStorage.setItem(WORKSPACE_KEY, value); } catch { /* best effort */ }
+}
+
+export function clearActiveWorkspaceId(): void {
+  try { localStorage.removeItem(WORKSPACE_KEY); } catch { /* best effort */ }
+}
+
+function readWorkspaceId(): string | null {
+  try { return localStorage.getItem(WORKSPACE_KEY); } catch { return null; }
 }
 
 function requireConfig() {
   const value = config();
   if (!value.url || !value.key) throw new Error('إعداد Supabase غير مكتمل: أضف VITE_SUPABASE_URL و VITE_SUPABASE_PUBLISHABLE_KEY');
-  if (!value.workspaceId) throw new Error('معرّف مساحة مذاق غير مضبوط: أضف VITE_MADHAQ_WORKSPACE_ID');
   return value;
 }
 
@@ -88,6 +111,20 @@ async function authRequest(path: string, init: RequestInit = {}) {
   const body = await response.json().catch(() => ({}));
   if (!response.ok) throw new Error(body.msg || body.message || body.error_description || 'فشل طلب المصادقة');
   return body;
+}
+
+async function rpcRequest(path: string, body: unknown) {
+  const { url, key } = requireConfig();
+  const session = await getCloudSession();
+  if (!session) throw new Error('يجب تسجيل الدخول أولاً');
+  const response = await fetch(`${url}/rest/v1/rpc/${path}`, {
+    method: 'POST',
+    headers: { apikey: key, Authorization: `Bearer ${session.accessToken}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify(body)
+  });
+  const result = await response.json().catch(() => null);
+  if (!response.ok) throw new Error(result?.message || result?.hint || result?.details || 'فشل تنفيذ العملية السحابية');
+  return result;
 }
 
 function sessionFromAuthBody(body: any, fallback?: CloudSession): CloudSession {
@@ -163,18 +200,23 @@ async function dataRequest(path: string, init: RequestInit = {}) {
   return body;
 }
 
-export async function getCloudMembership(): Promise<CloudMembership> {
-  const { workspaceId } = requireConfig();
+export async function getCloudMembership(): Promise<CloudMembership | null> {
   const session = await getCloudSession();
   if (!session) throw new Error('يجب تسجيل الدخول أولاً');
-  const rows = await dataRequest(`madhaq_workspace_members?select=workspace_id,role&workspace_id=eq.${encodeURIComponent(workspaceId)}&user_id=eq.${encodeURIComponent(session.userId)}&limit=1`);
+  const workspaceId = config().workspaceId;
+  const path = workspaceId
+    ? `madhaq_workspace_members?select=workspace_id,role&workspace_id=eq.${encodeURIComponent(workspaceId)}&user_id=eq.${encodeURIComponent(session.userId)}&limit=1`
+    : `madhaq_workspace_members?select=workspace_id,role&user_id=eq.${encodeURIComponent(session.userId)}&order=created_at.asc&limit=1`;
+  const rows = await dataRequest(path);
   const row = rows?.[0];
-  if (!row) throw new Error('الحساب مسجل لكنه غير مرتبط بمساحة مذاق هذه');
+  if (!row) return null;
+  setActiveWorkspaceId(String(row.workspace_id));
   return { workspaceId: row.workspace_id, role: row.role };
 }
 
 export async function pullRemoteDatabase(): Promise<RemoteDatabaseState | null> {
-  const { workspaceId } = requireConfig();
+  const { workspaceId } = config();
+  if (!workspaceId) throw new Error('لم يتم تحديد مساحة MADHAQ بعد');
   const rows = await dataRequest(`madhaq_workspace_state?select=version,payload,updated_at,updated_by&workspace_id=eq.${encodeURIComponent(workspaceId)}&limit=1`);
   const row = rows?.[0];
   if (!row) return null;
@@ -182,7 +224,8 @@ export async function pullRemoteDatabase(): Promise<RemoteDatabaseState | null> 
 }
 
 export async function pushRemoteDatabase(payload: DatabaseSchema, expectedRemoteVersion: number): Promise<RemoteDatabaseState> {
-  const { workspaceId } = requireConfig();
+  const { workspaceId } = config();
+  if (!workspaceId) throw new Error('لم يتم تحديد مساحة MADHAQ بعد');
   const session = await getCloudSession();
   if (!session) throw new Error('يجب تسجيل الدخول أولاً');
   const nextVersion = expectedRemoteVersion + 1;
@@ -196,9 +239,18 @@ export async function pushRemoteDatabase(payload: DatabaseSchema, expectedRemote
   return { version: Number(row.version), payload: row.payload as DatabaseSchema, updatedAt: String(row.updated_at), updatedBy: row.updated_by || undefined };
 }
 
-export async function createRemoteWorkspace(name: string): Promise<string> {
-  const rows = await dataRequest('rpc/create_madhaq_workspace', { method: 'POST', body: JSON.stringify({ workspace_name: name.trim() }) });
-  const id = Array.isArray(rows) ? rows[0] : rows;
+export async function createRemoteWorkspace(name = DEFAULT_WORKSPACE_NAME): Promise<string> {
+  const result = await rpcRequest('create_madhaq_workspace', { workspace_name: name.trim() });
+  const id = Array.isArray(result) ? result[0] : result;
   if (!id) throw new Error('تعذر إنشاء مساحة العمل');
-  return String(id);
+  const workspaceId = String(id);
+  setActiveWorkspaceId(workspaceId);
+  return workspaceId;
+}
+
+export async function ensureCloudWorkspace(name = DEFAULT_WORKSPACE_NAME): Promise<CloudMembership> {
+  const existing = await getCloudMembership();
+  if (existing) return existing;
+  const workspaceId = await createRemoteWorkspace(name);
+  return { workspaceId, role: 'OWNER' };
 }
