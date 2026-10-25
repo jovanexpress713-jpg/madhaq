@@ -1,5 +1,6 @@
 import {createRoot} from 'react-dom/client';
 import App from './App.tsx';
+import { CloudGate } from './components/CloudGate';
 import { storage } from './services/storage';
 import { installDistributionGuard } from './services/distributionGuard';
 import { installProductionGuard } from './services/productionGuard';
@@ -20,4 +21,8 @@ installRecoveryBackup();
 installRecoveryCommitBridge(storage.subscribe.bind(storage));
 installDocumentNumberIntegrity();
 
-createRoot(document.getElementById('root')!).render(<App />);
+createRoot(document.getElementById('root')!).render(
+  <CloudGate>
+    <App />
+  </CloudGate>
+);
