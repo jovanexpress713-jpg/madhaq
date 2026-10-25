@@ -12,6 +12,8 @@ Object.defineProperty(globalThis, 'localStorage', {
 });
 
 const { storage } = await import('../src/services/storage');
+const { installDocumentNumberIntegrity } = await import('../src/services/documentNumberIntegrity');
+installDocumentNumberIntegrity();
 storage.resetToDefault();
 
 const db = storage.getDatabase();
