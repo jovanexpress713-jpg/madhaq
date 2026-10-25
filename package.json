@@ -22,7 +22,8 @@
     "verify:role-workflow": "tsx scripts/role-workflow-smoke.ts",
     "verify:number-sequences": "tsx scripts/number-sequence-integrity-smoke.ts",
     "verify:recovery-backup": "tsx scripts/recovery-backup-same-tab-smoke.ts",
-    "verify:recovery-bridge": "tsx scripts/recovery-commit-bridge-smoke.ts"
+    "verify:recovery-bridge": "tsx scripts/recovery-commit-bridge-smoke.ts",
+    "verify:cloud-sync": "tsx scripts/cloud-sync-contract-smoke.ts"
   },
   "dependencies": {
     "@google/genai": "^2.4.0",
