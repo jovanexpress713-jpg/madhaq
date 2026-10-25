@@ -62,5 +62,8 @@ jobs:
           bun run verify:recipes
           bun run verify:recipe-production
 
+      - name: Document sequence integrity validation
+        run: bun run verify:number-sequences
+
       - name: Production build
         run: bun run build
