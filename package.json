@@ -19,7 +19,8 @@
     "verify:recipe-production": "tsx scripts/recipe-production-integration-smoke.ts",
     "verify:customer-returns": "tsx scripts/customer-return-workflow-smoke.ts",
     "verify:supply-production": "tsx scripts/supply-production-workflow-smoke.ts",
-    "verify:role-workflow": "tsx scripts/role-workflow-smoke.ts"
+    "verify:role-workflow": "tsx scripts/role-workflow-smoke.ts",
+    "verify:number-sequences": "tsx scripts/number-sequence-integrity-smoke.ts"
   },
   "dependencies": {
     "@google/genai": "^2.4.0",
@@ -41,6 +42,7 @@
     "autoprefixer": "^10.4.21",
     "esbuild": "^0.25.0",
     "tailwindcss": "^4.3.3",
+    "esbuild": "^0.25.0",
     "tsx": "^4.21.0",
     "typescript": "^7.0.2",
     "vite-plugin-pwa": "^2.0.0"
