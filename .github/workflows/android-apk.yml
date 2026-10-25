@@ -1,0 +1,66 @@
+name: Build MADHAQ Android APK
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+      - feature/madhaq-production-completion
+
+permissions:
+  contents: read
+
+jobs:
+  android-apk:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Setup Java 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: gradle
+
+      - name: Install web dependencies
+        run: npm install
+
+      - name: Install Capacitor 8
+        run: npm install --no-save @capacitor/core@8 @capacitor/cli@8 @capacitor/android@8
+
+      - name: Build web app for Android
+        env:
+          CAPACITOR_BUILD: 'true'
+          VITE_SUPABASE_URL: https://ljczxecxtrsljbaxotpw.supabase.co
+          VITE_SUPABASE_PUBLISHABLE_KEY: sb_publishable_6MDWbW3fPmixm0DjxM4-7g_gZvt4yQx
+        run: npm run build
+
+      - name: Create Android project
+        run: npx cap add android
+
+      - name: Sync Android project
+        run: npx cap sync android
+
+      - name: Build debug APK
+        working-directory: android
+        run: ./gradlew assembleDebug --no-daemon
+
+      - name: Verify APK exists
+        run: test -s android/app/build/outputs/apk/debug/app-debug.apk
+
+      - name: Publish MADHAQ APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: MADHAQ-Android-APK
+          path: android/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
+          retention-days: 14
