@@ -5,6 +5,7 @@ import { installProductionGuard } from './services/productionGuard';
 import { installPurchaseGuard } from './services/purchaseGuard';
 import { installReturnGuard } from './services/returnGuard';
 import { installSupplierGuard } from './services/supplierGuard';
+import { installRecoveryBackup } from './services/recoveryBackup';
 import './index.css';
 
 installDistributionGuard();
@@ -12,5 +13,6 @@ installProductionGuard();
 installPurchaseGuard();
 installReturnGuard();
 installSupplierGuard();
+installRecoveryBackup();
 
 createRoot(document.getElementById('root')!).render(<App />);
