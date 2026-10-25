@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Cloud, CloudOff, LogIn, LogOut, RefreshCw, ShieldCheck, UserPlus } from 'lucide-react';
 import {
+  ensureCloudWorkspace,
   getCloudSession,
   isCloudConfigured,
   signInWithPassword,
@@ -99,6 +100,7 @@ export function CloudGate({ children }: Props) {
     const session = await getCloudSession();
     if (!session) { setAuthenticated(false); setReady(true); return; }
     try {
+      await ensureCloudWorkspace('MADHAQ Dessert Factory');
       await startCloudSync();
       setAuthenticated(true);
       setReady(true);
