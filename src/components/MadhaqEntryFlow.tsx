@@ -21,6 +21,11 @@ export function MadhaqEntryFlow({ children }: MadhaqEntryFlowProps) {
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
+    document.body.classList.toggle('madhaq-authenticated', Boolean(user));
+    return () => document.body.classList.remove('madhaq-authenticated');
+  }, [user]);
+
+  useEffect(() => {
     const timer = window.setTimeout(() => setScreen('welcome'), 1500);
     return () => window.clearTimeout(timer);
   }, []);
@@ -59,7 +64,6 @@ export function MadhaqEntryFlow({ children }: MadhaqEntryFlowProps) {
       setError(result.error ?? 'تعذر تسجيل الدخول.');
       return;
     }
-    sessionStorage.setItem('madhaq_skip_splash', '1');
     setPassword('');
     setUser(result.user);
   };
