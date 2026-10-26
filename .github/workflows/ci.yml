@@ -30,6 +30,9 @@ jobs:
       - name: Typecheck
         run: bun run lint
 
+      - name: Clean production start validation
+        run: bun run verify:clean-start
+
       - name: Production business-rule validation
         run: bun run verify:production
 
