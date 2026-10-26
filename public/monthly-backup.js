@@ -7,10 +7,7 @@
   const RETENTION = 12;
   const FORMAT = 'MADHAQ_MONTHLY_BACKUP_V1';
 
-  const monthKey = (date = new Date()) => {
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-    return `${date.getFullYear()}-${month}`;
-  };
+  const monthKey = (date = new Date()) => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
 
   const open = () => new Promise((resolve, reject) => {
     const request = indexedDB.open(BACKUP_DB, 1);
@@ -31,14 +28,8 @@
     return new Promise((resolve, reject) => {
       const tx = db.transaction(BACKUP_STORE, 'readonly');
       const request = tx.objectStore(BACKUP_STORE).getAll();
-      request.onsuccess = () => {
-        db.close();
-        resolve(request.result || []);
-      };
-      request.onerror = () => {
-        db.close();
-        reject(request.error || new Error('cannot list backups'));
-      };
+      request.onsuccess = () => { db.close(); resolve(request.result || []); };
+      request.onerror = () => { db.close(); reject(request.error || new Error('cannot list backups')); };
     });
   };
 
@@ -76,7 +67,7 @@
     });
   };
 
-  const createIfMissing = async () => {
+  const createOrRefreshCurrentMonth = async () => {
     const raw = localStorage.getItem(LIVE_DB_KEY);
     if (!raw) return null;
     let database;
@@ -84,9 +75,6 @@
     if (!database || typeof database !== 'object' || !database.version) return null;
 
     const key = monthKey();
-    const existing = (await all()).find((item) => item.monthKey === key);
-    if (existing) return existing;
-
     const exportedAt = new Date().toISOString();
     const payload = JSON.stringify({ format: FORMAT, exportedAt, database });
     const packed = await pack(payload);
@@ -104,12 +92,9 @@
       await new Promise((resolve, reject) => {
         const tx = db.transaction(BACKUP_STORE, 'readwrite');
         tx.objectStore(BACKUP_STORE).put(snapshot);
-        tx.oncomplete = () => resolve();
+        tx.oncomplete = resolve;
         tx.onerror = () => reject(tx.error || new Error('backup write failed'));
       });
-    } catch (error) {
-      // Another open tab may have created this month's unique snapshot first.
-      if (!String(error).includes('Constraint')) throw error;
     } finally {
       db.close();
     }
@@ -141,8 +126,10 @@
     const raw = await unpack(snapshot.payload, snapshot.compressed);
     const envelope = JSON.parse(raw);
     if (envelope.format !== FORMAT || !validate(envelope.database)) throw new Error('النسخة الاحتياطية غير صالحة');
+    if (!window.confirm(`سيتم استبدال البيانات الحالية بنسخة ${snapshot.monthKey}. هل تريد المتابعة؟`)) return false;
     localStorage.setItem(LIVE_DB_KEY, JSON.stringify(envelope.database));
     location.reload();
+    return true;
   };
 
   const download = async (id) => {
@@ -156,7 +143,7 @@
   };
 
   window.MadhaqBackup = {
-    ensureCurrentMonth: createIfMissing,
+    ensureCurrentMonth: createOrRefreshCurrentMonth,
     list: async () => (await all()).sort((a, b) => b.monthKey.localeCompare(a.monthKey)).map(({ id, monthKey: key, createdAt, sizeBytes, compressed }) => ({ id, monthKey: key, createdAt, sizeBytes, compressed })),
     restore,
     download
@@ -168,7 +155,7 @@
     scheduled = true;
     setTimeout(() => {
       scheduled = false;
-      createIfMissing().catch((error) => console.warn('Monthly backup skipped:', error));
+      createOrRefreshCurrentMonth().catch((error) => console.warn('Monthly backup skipped:', error));
     }, 1500);
   };
 
