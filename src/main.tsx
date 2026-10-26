@@ -16,6 +16,6 @@ installSupplierGuard();
 
 createRoot(document.getElementById('root')!).render(
   <MadhaqEntryFlow>
-    {(user, onLogout) => <App authenticatedUser={user} onLogout={onLogout} />}
+    {() => <App />}
   </MadhaqEntryFlow>,
 );
