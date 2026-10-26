@@ -27,67 +27,30 @@
     -webkit-user-select: text;
   }
 
-  button, a, input, textarea, select {
-    touch-action: manipulation;
-  }
+  button, a, input, textarea, select { touch-action: manipulation; }
 
-  button:focus-visible,
-  a:focus-visible,
-  input:focus-visible,
-  textarea:focus-visible,
-  select:focus-visible {
+  button:focus-visible, a:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-visible {
     outline: 3px solid rgb(245 158 11 / 0.65);
     outline-offset: 2px;
   }
 
-  /* Keep phone UI clear of gesture/navigation areas. */
-  .pb-safe {
-    padding-bottom: calc(1rem + var(--app-safe-bottom));
-  }
-
-  /* Consistent touch target for compact controls. */
-  .touch-target {
-    min-width: 44px;
-    min-height: 44px;
-  }
+  .pb-safe { padding-bottom: calc(1rem + var(--app-safe-bottom)); }
+  .touch-target { min-width: 44px; min-height: 44px; }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  html {
-    scroll-behavior: auto;
-  }
-
-  *,
-  *::before,
-  *::after {
-    animation-duration: 0.01ms !important;
-    animation-iteration-count: 1 !important;
-    transition-duration: 0.01ms !important;
-    scroll-behavior: auto !important;
-  }
+  html { scroll-behavior: auto; }
+  *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; scroll-behavior: auto !important; }
 }
 
 @media print {
-  @page {
-    margin: 10mm;
-  }
-
-  body {
-    background: white !important;
-    color: black !important;
-  }
-
-  header, nav, footer, button, .print\:hidden {
-    display: none !important;
-  }
-
-  .print\:block {
-    display: block !important;
-  }
+  @page { margin: 10mm; }
+  body { background: white !important; color: black !important; }
+  header, nav, footer, button, .print\:hidden { display: none !important; }
+  .print\:block { display: block !important; }
 }
 
-
-/* Calm branded entry animation for MADHAQ */
+/* Existing in-app splash. Hidden after the new authenticated entry flow. */
 .madhaq-splash { background: radial-gradient(ellipse at 50% 42%, #292117 0%, #171411 44%, #0c0b0a 100%); animation: madhaq-splash-exit 420ms ease 1.43s forwards; }
 .madhaq-splash-glow { position:absolute; width:19rem; height:19rem; border-radius:9999px; filter:blur(70px); opacity:.22; pointer-events:none; }
 .madhaq-splash-glow-one { background:#d97706; top:10%; right:-5rem; animation:madhaq-glow-drift 4s ease-in-out infinite alternate; }
@@ -105,4 +68,60 @@
 @keyframes madhaq-text-enter { from { opacity:0; transform:translateY(9px); } to { opacity:1; transform:translateY(0); } }
 @keyframes madhaq-progress { from { transform:translateX(-120%); } to { transform:translateX(340%); } }
 @keyframes madhaq-glow-drift { from { transform:translate3d(0,-10px,0) scale(.9); } to { transform:translate3d(18px,16px,0) scale(1.12); } }
-@media (prefers-reduced-motion:reduce) { .madhaq-splash,.madhaq-splash * { animation-duration:1ms !important; animation-iteration-count:1 !important; } }
+
+/* MADHAQ first-run / login experience */
+.madhaq-entry { min-height:100vh; width:100%; display:grid; place-items:center; position:relative; overflow:hidden; isolation:isolate; background:radial-gradient(circle at 50% 25%, #2b2114 0%, #14110d 42%, #080807 100%); color:#f8fafc; padding:24px; box-sizing:border-box; }
+.madhaq-entry::before { content:""; position:absolute; inset:0; z-index:-1; background:linear-gradient(135deg,rgba(245,158,11,.08),transparent 38%,rgba(217,119,6,.06)); }
+.madhaq-entry-orb { position:absolute; width:360px; height:360px; border-radius:999px; filter:blur(80px); opacity:.18; z-index:-1; animation:madhaq-entry-float 8s ease-in-out infinite alternate; }
+.madhaq-entry-orb.orb-one { background:#f59e0b; top:-150px; right:-100px; }
+.madhaq-entry-orb.orb-two { background:#b45309; bottom:-180px; left:-100px; animation-delay:-3s; }
+.madhaq-entry-card,.madhaq-entry-panel,.madhaq-auth-card { width:min(100%,520px); box-sizing:border-box; }
+.madhaq-entry-card { text-align:center; animation:madhaq-entry-up .7s ease both; }
+.madhaq-entry-logo { width:120px; height:120px; margin:0 auto; padding:10px; border:1px solid rgba(251,191,36,.45); border-radius:32px; background:rgba(0,0,0,.32); box-shadow:0 18px 80px rgba(245,158,11,.18),inset 0 0 30px rgba(251,191,36,.07); box-sizing:border-box; }
+.madhaq-entry-logo.small { width:86px; height:86px; border-radius:26px; margin-bottom:20px; }
+.madhaq-entry-logo.tiny { width:52px; height:52px; border-radius:16px; padding:5px; margin:0; }
+.madhaq-entry-logo img { width:100%; height:100%; object-fit:contain; display:block; }
+.madhaq-entry-brand { margin-top:24px; color:#fbbf24; font-size:clamp(2.5rem,10vw,4rem); line-height:1; font-weight:950; letter-spacing:-.06em; }
+.madhaq-entry-brand span { display:block; color:rgba(253,230,138,.72); font:600 .78rem ui-monospace,SFMono-Regular,Menlo,monospace; letter-spacing:.34em; margin-top:8px; }
+.madhaq-entry-card p { color:rgba(255,255,255,.68); margin:18px 0 0; font-size:14px; }
+.madhaq-entry-progress { width:160px; height:3px; background:rgba(255,255,255,.1); border-radius:99px; overflow:hidden; margin:28px auto 0; }
+.madhaq-entry-progress span { display:block; width:44%; height:100%; background:#f59e0b; animation:madhaq-entry-progress 1.3s ease-in-out infinite; }
+.madhaq-entry-panel { padding:clamp(28px,6vw,52px); border:1px solid rgba(255,255,255,.1); border-radius:34px; background:rgba(18,16,13,.78); backdrop-filter:blur(22px); box-shadow:0 35px 100px rgba(0,0,0,.42); animation:madhaq-entry-up .55s ease both; }
+.madhaq-entry-kicker { display:block; color:#fbbf24; font:700 11px ui-monospace,SFMono-Regular,Menlo,monospace; letter-spacing:.14em; }
+.madhaq-entry-panel h1 { margin:13px 0 8px; font-size:clamp(2rem,7vw,3rem); line-height:1.15; letter-spacing:-.04em; }
+.madhaq-entry-panel h1 strong { color:#fbbf24; }
+.madhaq-entry-panel>p { margin:0; color:rgba(255,255,255,.66); line-height:1.9; font-size:14px; }
+.madhaq-entry-points { display:grid; gap:10px; margin:25px 0 28px; color:rgba(255,255,255,.72); font-size:12px; }
+.madhaq-entry-points span { display:flex; align-items:center; gap:9px; padding:12px 13px; border-radius:15px; background:rgba(255,255,255,.045); border:1px solid rgba(255,255,255,.06); }
+.madhaq-entry-points svg { width:17px; height:17px; color:#fbbf24; flex:none; }
+.madhaq-entry-primary { width:100%; min-height:52px; display:flex; align-items:center; justify-content:center; gap:9px; border:0; border-radius:17px; background:linear-gradient(135deg,#fbbf24,#d97706); color:#17120b; font-weight:900; font-size:14px; cursor:pointer; box-shadow:0 12px 32px rgba(245,158,11,.18); transition:transform .18s ease,filter .18s ease; }
+.madhaq-entry-primary:hover { filter:brightness(1.06); transform:translateY(-1px); }
+.madhaq-entry-primary:active { transform:translateY(1px); }
+.madhaq-entry-primary:disabled { opacity:.6; cursor:wait; }
+.madhaq-auth-card { padding:clamp(22px,5vw,40px); border:1px solid rgba(255,255,255,.1); border-radius:30px; background:rgba(17,15,12,.86); backdrop-filter:blur(22px); box-shadow:0 35px 100px rgba(0,0,0,.45); animation:madhaq-entry-up .5s ease both; }
+.madhaq-auth-brand { display:flex; align-items:center; gap:12px; padding-bottom:22px; border-bottom:1px solid rgba(255,255,255,.08); }
+.madhaq-auth-brand strong { display:block; color:#fbbf24; font-size:19px; }
+.madhaq-auth-brand span { display:block; color:rgba(255,255,255,.42); font:600 9px ui-monospace,SFMono-Regular,Menlo,monospace; letter-spacing:.18em; }
+.madhaq-auth-heading { margin:24px 0; }
+.madhaq-auth-heading>span { color:#fbbf24; font-size:11px; font-weight:800; }
+.madhaq-auth-heading h1 { margin:6px 0 5px; font-size:28px; }
+.madhaq-auth-heading p { margin:0; color:rgba(255,255,255,.55); font-size:12px; line-height:1.8; }
+.madhaq-auth-form { display:grid; gap:15px; }
+.madhaq-auth-form label>span { display:block; margin:0 0 7px; color:rgba(255,255,255,.72); font-size:12px; font-weight:800; }
+.madhaq-input { min-height:50px; display:flex; align-items:center; gap:10px; padding:0 13px; border:1px solid rgba(255,255,255,.1); border-radius:15px; background:rgba(255,255,255,.045); transition:border-color .2s,box-shadow .2s; }
+.madhaq-input:focus-within { border-color:rgba(245,158,11,.55); box-shadow:0 0 0 3px rgba(245,158,11,.08); }
+.madhaq-input>svg { width:17px; height:17px; color:#fbbf24; flex:none; }
+.madhaq-input input { min-width:0; flex:1; border:0; outline:0; background:transparent; color:#fff; font:inherit; font-size:13px; }
+.madhaq-input input::placeholder { color:rgba(255,255,255,.25); }
+.madhaq-input button { border:0; background:transparent; color:rgba(255,255,255,.45); display:grid; place-items:center; padding:6px; cursor:pointer; }
+.madhaq-input button svg { width:17px; height:17px; }
+.madhaq-auth-error { border:1px solid rgba(248,113,113,.25); background:rgba(127,29,29,.2); color:#fecaca; border-radius:13px; padding:10px 12px; font-size:11px; line-height:1.7; }
+.madhaq-auth-help { margin-top:15px; text-align:center; color:rgba(255,255,255,.35); font-size:10px; line-height:1.7; }
+.madhaq-auth-card .madhaq-entry-primary svg,.madhaq-entry-primary svg { width:17px; height:17px; }
+.madhaq-auth-card input { direction:ltr; text-align:left; }
+body.madhaq-authenticated .madhaq-splash { display:none !important; }
+@keyframes madhaq-entry-up { from { opacity:0; transform:translateY(18px) scale(.985); } to { opacity:1; transform:none; } }
+@keyframes madhaq-entry-progress { from { transform:translateX(-120%); } to { transform:translateX(320%); } }
+@keyframes madhaq-entry-float { from { transform:translate3d(0,0,0) scale(.9); } to { transform:translate3d(25px,-20px,0) scale(1.08); } }
+@media (max-width:480px) { .madhaq-entry { padding:14px; } .madhaq-entry-panel,.madhaq-auth-card { border-radius:24px; padding:24px 20px; } .madhaq-entry-logo { width:100px; height:100px; } }
+@media (prefers-reduced-motion:reduce) { .madhaq-entry *, .madhaq-entry { animation-duration:1ms !important; animation-iteration-count:1 !important; } }
