@@ -20,7 +20,7 @@
     "verify:customer-returns": "tsx scripts/customer-return-workflow-smoke.ts",
     "verify:supply-production": "tsx scripts/supply-production-workflow-smoke.ts",
     "verify:role-workflow": "tsx scripts/role-workflow-smoke.ts",
-    "verify:clean-start": "tsx scripts/clean-production-start-smoke.ts"
+    "verify:clean-start": "node scripts/clean-production-start-smoke.mjs"
   },
   "dependencies": {
     "@google/genai": "^2.4.0",
