@@ -12,6 +12,7 @@ jobs:
   build-android:
     name: Build installable Android APK
     runs-on: ubuntu-latest
+    timeout-minutes: 15
 
     steps:
       - name: Checkout
@@ -51,7 +52,7 @@ jobs:
         run: bun install --frozen-lockfile
 
       - name: Install Capacitor Android tooling
-        run: bunx --bun npm install --no-save --legacy-peer-deps @capacitor/core@7 @capacitor/cli@7 @capacitor/android@7 @capacitor/assets
+        run: bunx --bun npm install --no-save --legacy-peer-deps @capacitor/core@7 @capacitor/cli@7 @capacitor/android@7
 
       - name: Typecheck
         run: bun run lint
@@ -75,15 +76,6 @@ jobs:
 
       - name: Sync web application into Android
         run: bunx cap sync android
-
-      - name: Generate branded MADHAQ launcher icon and native splash
-        run: |
-          sudo apt-get update -y
-          sudo apt-get install -y imagemagick
-          mkdir -p assets
-          convert public/madhaq_logo.png -resize 900x900 -gravity center -background '#171411' -extent 1024x1024 assets/icon.png
-          convert public/madhaq_logo.png -resize 900x900 -gravity center -background '#171411' -extent 2732x2732 assets/splash.png
-          bunx capacitor-assets generate --android
 
       - name: Build debug APK
         working-directory: android
