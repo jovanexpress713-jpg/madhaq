@@ -1,5 +1,6 @@
 import {createRoot} from 'react-dom/client';
 import App from './App.tsx';
+import { MadhaqEntryFlow } from './components/MadhaqEntryFlow';
 import { installDistributionGuard } from './services/distributionGuard';
 import { installProductionGuard } from './services/productionGuard';
 import { installPurchaseGuard } from './services/purchaseGuard';
@@ -13,4 +14,8 @@ installPurchaseGuard();
 installReturnGuard();
 installSupplierGuard();
 
-createRoot(document.getElementById('root')!).render(<App />);
+createRoot(document.getElementById('root')!).render(
+  <MadhaqEntryFlow>
+    {(user, onLogout) => <App authenticatedUser={user} onLogout={onLogout} />}
+  </MadhaqEntryFlow>,
+);
